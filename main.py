@@ -3,6 +3,7 @@ import Telemeter
 import script
 import serial as ser
 import time
+import Object
 
 # s = ser.Serial('COM3', baudrate=9600, bytesize=ser.EIGHTBITS,
 #                parity=ser.PARITY_NONE, stopbits=ser.STOPBITS_ONE,
@@ -48,7 +49,7 @@ def main():
             sg.popup("goodbye!", auto_close=True, auto_close_duration=0.5)
             break
         if event == "_OBJECT_":  # state 1
-            pass
+            Object.Object()
         if event == "_TELEMETER_":  # state 2
             window.hide()
             angle = Telemeter.AngleChange()

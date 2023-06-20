@@ -96,6 +96,7 @@ def activescript(script_num):
 
 
 def ScriptMenu():
+    global Converted_file
     layout = [[sg.T("   Script Mode", font="any 30 bold", text_color='red')],
               [sg.B("Script 1", size=(10, 5), key="_S1_"), sg.B("Script 2", size=(10, 5), key="_S2_"),
                sg.B("Script 3", size=(10, 5), key="_S3_")],

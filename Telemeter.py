@@ -4,7 +4,7 @@ import time
 
 
 def AngleChange():
-    layout = [[sg.T('Wanted angle: '), sg.I(key='_INPUT_')],
+    layout = [[sg.T('Wanted angle: '), sg.I(key='_INPUT_', size=(8, 1))],
               [sg.B('Ok'), sg.B('Cancel')]]
     window = sg.Window('AngleUpdater', layout)
     while True:
