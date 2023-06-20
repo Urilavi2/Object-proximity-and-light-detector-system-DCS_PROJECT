@@ -49,7 +49,10 @@ def main():
             sg.popup("goodbye!", auto_close=True, auto_close_duration=0.5)
             break
         if event == "_OBJECT_":  # state 1
+            window.hide()
+            sendstate('1')
             Object.Object()
+            window.un_hide()
         if event == "_TELEMETER_":  # state 2
             window.hide()
             angle = Telemeter.AngleChange()

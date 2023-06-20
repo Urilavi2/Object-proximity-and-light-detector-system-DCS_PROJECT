@@ -82,7 +82,7 @@ def sendfile(script_num):
         i = i+1
         if i == commands_count:
             EnableTX = False
-
+    #  ADD ACKNOWLEDGE RECEIVE!!!!!!
 
 def activescript(script_num):
     s.reset_output_buffer()
