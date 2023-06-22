@@ -167,12 +167,13 @@ def light():
                                         font="any 9", color="white")
                         window["_GRAPH_"].update()
                 printscan = False
-                objects.clear()
+
         if event in (None, "Main Menu"):
             break
         if event == "rescan!":
             scan = True
             printscan = False
+            objects.clear()
             graph.erase()
             graph.draw_arc((10, -160), (440, 360), 180, 0, style='arc', arc_color='green')
             graph.draw_arc((60, -110), (390, 310), 180, 0, style='arc', arc_color='green')
@@ -182,6 +183,7 @@ def light():
 
         if event == 'calibration':
             calibrated = calibration(scan)
+            objects.clear()
             scan = True
             printscan = False
             startSweep()

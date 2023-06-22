@@ -99,9 +99,14 @@ def Object():
                 i = 0
                 info = [0, 0]
                 # RX
-                while (s.in_waiting > 0 ):  # while the input buffer isn't empty
+                while s.in_waiting > 0:  # while the input buffer isn't empty
                     enableTX = False
                     temp = s.readline()
+                    if temp.decode("ascii") == 'd':
+                        enableTX = True
+                        scan = False  # need to make sure that s.in_waiting is not empty between sending distance and angle
+                        printscan = True
+                        break
                     # receive until '\n' -> first receive the distance (time differences) and then the angle
                     info[i] = int(temp.decode("ascii"))
                     i = i+1
@@ -110,10 +115,7 @@ def Object():
                     real_info = (int(info[0]/58), int(info[1]))
                     objects.append(real_info)
                     # print(char.decode("ascii"))  # just for debugging
-                    if (s.in_waiting == 0):
-                        enableTX = True
-                        scan = False  # need to make sure that s.in_waiting is not empty between sending distance and angle
-                        printscan = True
+
             #  END OF RX
             if printscan:
                 for i in range(0, len(objects)):
@@ -138,7 +140,7 @@ def Object():
                                         font="any 9", color="white")
                         window["_GRAPH_"].update()
                 printscan = False
-                objects.clear()
+
         if event in (None, "Main Menu"):
             break
         if event == "change":
@@ -150,6 +152,7 @@ def Object():
             scan = True
             printscan = False
             graph.erase()
+            objects.clear()
             graph.draw_arc((10, -160), (440, 360), 180, 0, style='arc', arc_color='green')
             graph.draw_arc((60, -110), (390, 310), 180, 0, style='arc', arc_color='green')
             graph.draw_arc((110, -60), (340, 260), 180, 0, style='arc', arc_color='green')
@@ -160,6 +163,7 @@ def Object():
             scan = True
             printscan = False
             graph.erase()
+            objects.clear()
             graph.draw_arc((10, -160), (440, 360), 180, 0, style='arc', arc_color='green')
             graph.draw_arc((60, -110), (390, 310), 180, 0, style='arc', arc_color='green')
             graph.draw_arc((110, -60), (340, 260), 180, 0, style='arc', arc_color='green')
