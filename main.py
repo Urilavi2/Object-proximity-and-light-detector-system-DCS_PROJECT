@@ -4,6 +4,7 @@ import script
 import serial as ser
 import time
 import Object
+import light
 
 s = ser.Serial('COM3', baudrate=9600, bytesize=ser.EIGHTBITS,
                parity=ser.PARITY_NONE, stopbits=ser.STOPBITS_ONE,
@@ -53,6 +54,7 @@ def main():
             Object.Object()
             enableTX = True
             window.un_hide()
+
         if event == "_TELEMETER_":  # state 2
             window.hide()
             angle = Telemeter.AngleChange()
@@ -62,16 +64,23 @@ def main():
                 Telemeter.Telemeter(angle)
                 enableTX = True
             window.un_hide()
+
+        if event == "_LIGHT_":  # state 3
+            window.hide()
+            sendstate('3')
+            light.light()
+            enableTX = True
+            window.un_hide()
+
+        if event == "_OBJECT&LIGHT_":  # state 4
+            pass
+
         if event == "_SCRIPT_":  # state 5
             window.hide()
             sendstate('5')
             script.ScriptMenu()
             enableTX = True
             window.un_hide()
-        if event == "_OBJECT&LIGHT_":  # state 4
-            pass
-        if event == "_LIGHT_":  # state 3
-            pass
     window.close()
 
 
