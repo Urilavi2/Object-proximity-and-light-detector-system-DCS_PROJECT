@@ -117,13 +117,6 @@ def light():
             sg.popup("need to calibrate LDRs first!!", font="any 20 bold", auto_close=True, auto_close_duration=1.5,
                      text_color="dark red", button_type=5, no_titlebar=True)
 
-        if event == '_TIMEOUT_' and not scan:
-            #  handle calibration request
-            calibrated = calibration(scan)
-            scan = True
-            printscan = False
-            startSweep()
-        
         if event == '_TIMEOUT_' and scan:
             while scan:
                 i = 0
