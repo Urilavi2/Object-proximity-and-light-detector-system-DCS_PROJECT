@@ -6,10 +6,10 @@ import math
 Commands = {"inc_lcd": "01", "dec_lcd": "02", "rra_lcd": "03", "set_delay": "04", "clear_lcd": "05",
             "servo_deg": "06", "servo_scan": "07", "sleep": "08"}
 Converted_file = []
-# s = ser.Serial('COM3', baudrate=9600, bytesize=ser.EIGHTBITS,
-#                parity=ser.PARITY_NONE, stopbits=ser.STOPBITS_ONE,
-#                timeout=1)   # timeout of 1 sec so that the read and write operations are blocking,
-#                             # when the timeout expires the program will continue
+s = ser.Serial('COM3', baudrate=9600, bytesize=ser.EIGHTBITS,
+               parity=ser.PARITY_NONE, stopbits=ser.STOPBITS_ONE,
+               timeout=1)   # timeout of 1 sec so that the read and write operations are blocking,
+                            # when the timeout expires the program will continue
 
 # CHANGE THE COM!!
 
@@ -123,6 +123,7 @@ def sendfile(script_num):
 
 
 def activescript(script_num):
+    global s, enableTX
     s.reset_output_buffer()
     s.reset_input_buffer()
     while (s.out_waiting > 0 or enableTX):
@@ -131,14 +132,13 @@ def activescript(script_num):
         time.sleep(0.25)  # delay for accurate read/write operations on both ends
         if s.out_waiting == 0:
             enableTX = False
-    ack = False
     while True:
         while s.in_waiting > 0:
             readerbyte = s.read(size=1)
             reader = readerbyte.decode("ascii")
-            if reader == 1:
+            if reader == '1':
                 return True
-            if reader == 0:
+            if reader == '0':
                 sg.popup("No file in memory!")
                 return False
 
@@ -200,7 +200,7 @@ def telem_window(str_angle):
             return window
 
 def object_window():
-    global s, enableTX
+    global s, enableTX, objects
     layout = [
         [sg.T("        Object Detector", font="any 30 bold", text_color='red', size=(0, 1))],
         [sg.T("              System", font="any 30 bold", text_color='red')],
