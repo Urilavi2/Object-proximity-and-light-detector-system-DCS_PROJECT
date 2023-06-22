@@ -93,6 +93,17 @@ def activescript(script_num):
         time.sleep(0.25)  # delay for accurate read/write operations on both ends
         if s.out_waiting == 0:
             EnableTX = False
+    ack = False
+    while True:
+        while s.in_waiting > 0:
+            readerbyte = s.read(size=1)
+            reader = readerbyte.decode("ascii")
+            if reader == 1:
+                return True
+            if reader == 0:
+                sg.popup("No file in memory!")
+                return False
+
 
 
 def ScriptMenu():
@@ -140,25 +151,38 @@ def ScriptMenu():
             else:
                 sendfile('3')
 
-        # if event == "_S1_":
-        #     activescript('1')
-        #
-        #     # NEED TO ADDRESS AN ERROR GOT FROM MCU VIA WHILE LOOP OF READING --> meaning there is no script saved
-        #
-        #     # ASSUMING NO ERROR OCCURRED  --> SCRIPT IS RUNNING OK  -->  need to read from MCU acknowledge
-                # and read requests from MCU when commands servo_scan and servo_deg are coming and act as well
-        #
-        # if event == "_S2_":
-        #     activescript('2')
+        if event == "_S1_":
+            ack = activescript('1')
+            if ack:
+                pass
+                # read requests from MCU when commands servo_scan and servo_deg are coming and act as well
+            #  reset ack = False
 
-        #     # NEED TO ADDRESS AN ERROR GOT FROM MCU VIA WHILE LOOP OF READING
+
+        #
+        #
+        #
+        #     # ASSUMING NO ERROR OCCURRED  --> SCRIPT IS RUNNING OK  -->  need to read from MCU acknowledge  -- recieved in activescript
+
+        #
+        if event == "_S2_":
+            activescript('2')
+            if ack:
+                pass
+                # read requests from MCU when commands servo_scan and servo_deg are coming and act as well
+            #  reset ack = False
+
+        #
         #
         #     # ASSUMING NO ERROR OCCURRED  --> SCRIPT IS RUNNING OK
         #
-        # if event == "_S3_":
-        #     activescript('3')
+        if event == "_S3_":
+            activescript('3')
+            if ack:
+                pass
+                # read requests from MCU when commands servo_scan and servo_deg are coming and act as well
+            #  reset ack = False
 
-        #     # NEED TO ADDRESS AN ERROR GOT FROM MCU VIA WHILE LOOP OF READING
         #
         #     # ASSUMING NO ERROR OCCURRED  --> SCRIPT IS RUNNING OK
 

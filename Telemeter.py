@@ -60,9 +60,8 @@ def Telemeter(angle):
         if s.in_waiting > 0:
             s.reset_input_buffer()
             while (s.in_waiting > 0):
-                charByte = s.read(size=1)
-                time.sleep(0.25)                        # delay for accurate read/write operations on both ends
-                str_distance = charByte.decode("ascii")
+                charByte = s.readline()  # expect to find '\n' in the end of the distance!
+                str_distance = str(charByte.decode("ascii"))
                 if s.in_waiting == 0:
                     enableTX = True
                 window['_DISTANCE_'].update('Distance: ' + str_distance + ' cm')
@@ -72,10 +71,9 @@ def Telemeter(angle):
                 continue
             str_angle = str_angle_temp
             s.reset_output_buffer()
-            while (s.out_waiting > 0 or enableTX):
+            while s.out_waiting > 0 or enableTX:
                 bytetxangle = bytes(str_angle + '\n', 'ascii')
                 s.write(bytetxangle)
-                time.sleep(0.25)                        # delay for accurate read/write operations on both ends
                 if s.out_waiting == 0:
                    enableTX = False
             window['_ANGLE_'].update('Known angle: ' + str_angle + '°')

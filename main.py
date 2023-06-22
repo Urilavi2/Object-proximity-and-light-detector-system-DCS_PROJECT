@@ -5,29 +5,28 @@ import serial as ser
 import time
 import Object
 
-# s = ser.Serial('COM3', baudrate=9600, bytesize=ser.EIGHTBITS,
-#                parity=ser.PARITY_NONE, stopbits=ser.STOPBITS_ONE,
-#                timeout=1)  # timeout of 1 sec so that the read and write operations are blocking,
-#
-# # when the timeout expires the program will continue
-#
-# # CHANGE THE COM!!
+s = ser.Serial('COM3', baudrate=9600, bytesize=ser.EIGHTBITS,
+               parity=ser.PARITY_NONE, stopbits=ser.STOPBITS_ONE,
+               timeout=1)  # timeout of 1 sec so that the read and write operations are blocking,
+
+# when the timeout expires the program will continue
+
+# CHANGE THE COM!!
 
 enableTX = True
 
 
 def sendstate(state):
-    # s.reset_output_buffer()
-    # while (s.out_waiting > 0 or enableTX):
-    #     bytetxstate = bytes(state + '\n', 'ascii')
-    #     s.write(bytetxstate)
-    #     time.sleep(0.25)  # delay for accurate read/write operations on both ends
-    #     if s.out_waiting == 0:
-    #         enableTX = False
-    pass
+    s.reset_output_buffer()
+    while (s.out_waiting > 0 or enableTX):
+        bytetxstate = bytes(state + '\n', 'ascii')
+        s.write(bytetxstate)
+        if s.out_waiting == 0:
+            enableTX = False
 
 
 def main():
+    global enableTX
     layout = [[sg.T("DCS - Final Project", font="any 30 italic underline", pad=(249, 10), text_color='red')],
               [sg.T("     Light Source and Object proximity\n                   detector system", font="any 34 bold",
                     text_color='blue')],
@@ -52,6 +51,7 @@ def main():
             window.hide()
             sendstate('1')
             Object.Object()
+            enableTX = True
             window.un_hide()
         if event == "_TELEMETER_":  # state 2
             window.hide()
@@ -66,6 +66,7 @@ def main():
             window.hide()
             sendstate('5')
             script.ScriptMenu()
+            enableTX = True
             window.un_hide()
         if event == "_OBJECT&LIGHT_":  # state 4
             pass
@@ -74,8 +75,6 @@ def main():
     window.close()
 
 
-# Press the green button in the gutter to run the script.
 if __name__ == '__main__':
     main()
 
-# See PyCharm help at https://www.jetbrains.com/help/pycharm/
