@@ -160,7 +160,14 @@ def readcommands():
                 if obj_window != 0:
                     obj_window.close()
                     obj_window = 0
-                tele_window = tele_window()
+                angle_read = False
+                while not angle_read:
+                    while s.in_waiting > 0:
+                        anglebyte = s.readline()
+                        angle = anglebyte.decode("ascii")
+                        angle_read = True
+                tele_window = telem_window(angle)
+                angle_read = False
             elif something == 'f':  # AKA finish
                 if obj_window != 0:
                     obj_window.close()
@@ -168,6 +175,29 @@ def readcommands():
                     tele_window.close()
                 active = False
 
+
+def telem_window(str_angle):
+    global s, enableTX
+    layout = [[sg.T('    ', font="any 34 bold "),
+               sg.T('Telemeter', font="any 34 bold underline", text_color='red', pad=(120, 10))],
+              [sg.T('', key='_ANGLE_', pad=(100, 10), font='any 14'),],
+              [sg.T('', key='_DISTANCE_', pad=(100, 10), font='any 14')],
+              [sg.B("Main Menu", pad=(250, 20))]
+              ]
+    str_distance = '0'
+    window = sg.Window('Telemeter', layout, size=(600, 250))
+    window.finalize()
+    window['_ANGLE_'].update('Known angle: ' + str_angle + '°')
+    window['_DISTANCE_'].update('Distance: ' + str_distance + ' cm')
+    while True:
+        event, values = window.read()
+        while s.in_waiting > 0:
+            charByte = s.readline()  # expect to find '\n' in the end of the distance!
+            str_distance = str(charByte.decode("ascii"))
+            if s.in_waiting == 0:
+                enableTX = True
+            window['_DISTANCE_'].update('Distance: ' + str_distance + ' cm')
+            return window
 
 def object_window():
     global s, enableTX
@@ -298,9 +328,7 @@ def ScriptMenu():
             if ack:
                 readcommands()
                 ack = False
-
                 # read requests from MCU when commands servo_scan and servo_deg are coming and act as well
-            #  reset ack = False
         # ASSUMING NO ERROR OCCURRED  --> SCRIPT IS RUNNING OK  -->  need to read from MCU acknowledge  -- recieved in activescript
         if event == "_S2_":
             ack = activescript('2')
