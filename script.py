@@ -98,7 +98,7 @@ def sendfile(script_num):
     s.reset_output_buffer()
     s.reset_input_buffer()
     enableTX = True
-    # sending a bit to MCU to tell him that file is about to be sent
+    # sending a bit to MCU to tell him that file is about to be sent!
     s.write(bytes('s\n', 'ascii'))
     while s.out_waiting > 0 or enableTX:
         bytetxscript = bytes(script_num + '\n', 'ascii')
