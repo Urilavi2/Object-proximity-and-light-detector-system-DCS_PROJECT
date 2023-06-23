@@ -98,6 +98,7 @@ def sendfile(script_num):
     s.reset_output_buffer()
     s.reset_input_buffer()
     enableTX = True
+    ack = False
     # sending a bit to MCU to tell him that file is about to be sent!
     s.write(bytes('s\n', 'ascii'))
     while s.out_waiting > 0 or enableTX:
@@ -117,10 +118,11 @@ def sendfile(script_num):
         i = i + 1
         if i == commands_count:
             enableTX = False
-    while s.in_waiting > 0:
+    while s.in_waiting > 0 or not ack:
         byteack = s.readline()
         if byteack.decode("ascii") == '1':
             print('received script No. ' + script_num)
+            ack = True
     #  ADD ACKNOWLEDGE RECEIVE!!!!!!
 
 
