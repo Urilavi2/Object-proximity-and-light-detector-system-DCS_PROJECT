@@ -52,14 +52,13 @@ def Telemeter(angle):
     window.finalize()
     window['_ANGLE_'].update('Known angle: ' + str_angle + '°')
     window['_DISTANCE_'].update('Distance: ' + str_distance + ' cm')
-
+    s.reset_input_buffer()
     while True:
-        event, values = window.read()
+        event, values = window.read(timeout_key="_TIMEOUT_", timeout=300)  # 0.3 sec between sends --> check it!!
         if event in (None, "Main Menu"):
             break
-        if s.in_waiting > 0:
-            s.reset_input_buffer()
-            while (s.in_waiting > 0):
+        if event == "_TIMEOUT_":
+            while s.in_waiting > 0:
                 charByte = s.readline()  # expect to find '\n' in the end of the distance!
                 str_distance = str(charByte.decode("ascii"))
                 if s.in_waiting == 0:
