@@ -5,6 +5,7 @@ import serial as ser
 import time
 import Object
 import light
+import lightNobjects
 
 s = ser.Serial('COM3', baudrate=9600, bytesize=ser.EIGHTBITS,
                parity=ser.PARITY_NONE, stopbits=ser.STOPBITS_ONE,
@@ -73,7 +74,11 @@ def main():
             window.un_hide()
 
         if event == "_OBJECT&LIGHT_":  # state 4
-            pass
+            window.hide()
+            sendstate('4')
+            lightNobjects.lights_objects()
+            enableTX = True
+            window.un_hide()
 
         if event == "_SCRIPT_":  # state 5
             window.hide()
