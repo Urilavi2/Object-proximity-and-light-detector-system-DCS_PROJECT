@@ -180,12 +180,16 @@ def light():
             printscan = False
             objects.clear()
             ldr_scan.clear()
-            graph.erase()
-            graph.draw_arc((10, -160), (440, 360), 180, 0, style='arc', arc_color='green')
-            graph.draw_arc((60, -110), (390, 310), 180, 0, style='arc', arc_color='green')
-            graph.draw_arc((110, -60), (340, 260), 180, 0, style='arc', arc_color='green')
-            graph.DrawLine((10, 100), (440, 100), width=2, color="white")
-            startSweep()
+            if calibrated:
+                graph.erase()
+                graph.draw_arc((10, -160), (440, 360), 180, 0, style='arc', arc_color='green')
+                graph.draw_arc((60, -110), (390, 310), 180, 0, style='arc', arc_color='green')
+                graph.draw_arc((110, -60), (340, 260), 180, 0, style='arc', arc_color='green')
+                graph.DrawLine((10, 100), (440, 100), width=2, color="white")
+                startSweep()
+            else:
+                sg.popup("need to calibrate LDRs first!!", font="any 20 bold", auto_close=True, auto_close_duration=1.5,
+                         text_color="dark red", button_type=5, no_titlebar=True)
 
         if event == 'calibration':
             calibrated = calibration(scan)
