@@ -200,3 +200,4 @@ def light():
             startSweep()
 
     window.close()
+    s.close()

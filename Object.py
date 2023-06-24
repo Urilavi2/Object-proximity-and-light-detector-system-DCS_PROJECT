@@ -174,3 +174,4 @@ def Object():
             startSweep()
 
     window.close()
+    s.close()

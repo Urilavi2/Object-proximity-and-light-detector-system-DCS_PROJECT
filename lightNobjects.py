@@ -223,3 +223,4 @@ def lights_objects():
                 sg.popup("need to calibrate LDRs first!!", font="any 20 bold", auto_close=True, auto_close_duration=1.5,
                          text_color="dark red", button_type=5, no_titlebar=True)
     window.close()
+    s.close()

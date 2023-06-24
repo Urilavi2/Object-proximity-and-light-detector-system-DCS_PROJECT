@@ -77,3 +77,4 @@ def Telemeter(angle):
                    enableTX = False
             window['_ANGLE_'].update('Known angle: ' + str_angle + '°')
     window.close()
+    s.close()

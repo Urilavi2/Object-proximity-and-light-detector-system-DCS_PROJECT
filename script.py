@@ -350,3 +350,4 @@ def ScriptMenu():
             # ASSUMING NO ERROR OCCURRED  --> SCRIPT IS RUNNING OK
 
     window.close()
+    s.close()

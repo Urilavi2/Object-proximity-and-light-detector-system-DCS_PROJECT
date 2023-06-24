@@ -92,6 +92,7 @@ def main():
             sendstate('Z')  # end of state! --> in MCU back to state 0
             window.un_hide()
     window.close()
+    s.close()
 
 
 if __name__ == '__main__':
