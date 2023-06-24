@@ -5,10 +5,10 @@ import math
 
 Str_distance = '450'
 
-s = ser.Serial('COM3', baudrate=9600, bytesize=ser.EIGHTBITS,
-                   parity=ser.PARITY_NONE, stopbits=ser.STOPBITS_ONE,
-                   timeout=1)   # timeout of 1 sec so that the read and write operations are blocking,
-                                # when the timeout expires the program will continue
+# s = ser.Serial('COM3', baudrate=9600, bytesize=ser.EIGHTBITS,
+#                    parity=ser.PARITY_NONE, stopbits=ser.STOPBITS_ONE,
+#                    timeout=1)   # timeout of 1 sec so that the read and write operations are blocking,
+#                                 # when the timeout expires the program will continue
 
 #     # CHANGE THE COM!!
 #  also change line 95 (explain comment is in line 96) as needed
@@ -122,7 +122,10 @@ def Object():
                     distance = objects[i][0]
                     angle = math.radians(objects[i][1])
                     if distance <= int(Str_distance):
-                        print(distance * math.cos(angle) * 0.47 + x_offset, distance * math.sin(angle) * 0.58 + y_offset)
+                        print("OBJECT:")
+                        print("x: ", distance * math.cos(angle) * 0.47 + x_offset, "y: ",
+                              distance * math.sin(angle) * 0.58 + y_offset)
+                        print("distance: ", distance, "angle: ", math.ceil(math.degrees(angle)))
                         graph.draw_text("X", location=(
                             distance * math.cos(angle) * 0.47 + x_offset, distance * math.sin(angle) * 0.58 + y_offset),
                                         # 225 is offset of x-axis and 0.47 = 215/450,
@@ -145,7 +148,7 @@ def Object():
             break
         if event == "change":
             str_distance_temp = LimitChange()
-            if str_distance_temp == None:
+            if str_distance_temp is None:
                 continue
             Str_distance = str_distance_temp
             window['_DISTANCE_'].update('                    Limit Distance: ' + Str_distance + ' cm')
