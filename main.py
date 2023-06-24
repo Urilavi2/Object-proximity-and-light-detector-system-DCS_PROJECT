@@ -54,6 +54,7 @@ def main():
             sendstate('1')
             Object.Object()
             enableTX = True
+            sendstate('Z')  # end of state! --> in MCU back to state 0
             window.un_hide()
 
         if event == "_TELEMETER_":  # state 2
@@ -64,6 +65,7 @@ def main():
                 sendstate(angle)  # first time the angle is sent!
                 Telemeter.Telemeter(angle)
                 enableTX = True
+                sendstate('Z')  # end of state! --> in MCU back to state 0
             window.un_hide()
 
         if event == "_LIGHT_":  # state 3
@@ -71,6 +73,7 @@ def main():
             sendstate('3')
             light.light()
             enableTX = True
+            sendstate('Z')  # end of state! --> in MCU back to state 0
             window.un_hide()
 
         if event == "_OBJECT&LIGHT_":  # state 4
@@ -78,6 +81,7 @@ def main():
             sendstate('4')
             lightNobjects.lights_objects()
             enableTX = True
+            sendstate('Z')  # end of state! --> in MCU back to state 0
             window.un_hide()
 
         if event == "_SCRIPT_":  # state 5
@@ -85,6 +89,7 @@ def main():
             sendstate('5')
             script.ScriptMenu()
             enableTX = True
+            sendstate('Z')  # end of state! --> in MCU back to state 0
             window.un_hide()
     window.close()
 
