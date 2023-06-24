@@ -5,9 +5,9 @@ import math
 
 Str_distance = '50'
 
-s = ser.Serial('COM3', baudrate=9600, bytesize=ser.EIGHTBITS,
-               parity=ser.PARITY_NONE, stopbits=ser.STOPBITS_ONE,
-               timeout=1)  # timeout of 1 sec so that the read and write operations are blocking,
+# s = ser.Serial('COM3', baudrate=9600, bytesize=ser.EIGHTBITS,
+#                parity=ser.PARITY_NONE, stopbits=ser.STOPBITS_ONE,
+#                timeout=1)  # timeout of 1 sec so that the read and write operations are blocking,
 # when the timeout expires the program will continue
 
 #     # CHANGE THE COM!!
@@ -24,6 +24,7 @@ ldr_calibrated = []
 
 
 def calibration(scan):
+    # calibration of both LDR1 and LDR2, computing average of every point in space on MCU and send result
     ldr_calibrated.clear()
     global enableTX, s, calibrated
     while s.in_waiting > 0 and not scan:  # while the input buffer isn't empty
@@ -117,7 +118,7 @@ def light():
             sg.popup("need to calibrate LDRs first!!", font="any 20 bold", auto_close=True, auto_close_duration=1.5,
                      text_color="dark red", button_type=5, no_titlebar=True)
 
-        if event == '_TIMEOUT_' and scan:
+        if event == '_TIMEOUT_' and scan and calibrated:
             while scan:
                 i = 0
                 info = [0, 0]
@@ -145,13 +146,15 @@ def light():
                             objects.append((j, ldr_scan[i][1]))
                 # objects list ready
                 for i in range(0, len(objects)):
-                    distance = objects[i][0]
+                    distance = objects[i][0] + 1
                     angle = math.radians(objects[i][1])
                     if distance <= int(Str_distance):
-                        print(distance * math.cos(angle) * 0.47 + x_offset,
-                              distance * math.sin(angle) * 0.58 + y_offset)
+                        print("LIGHT SOURCE:")
+                        print("x: ", distance * math.cos(angle) * 0.47 * 9 + x_offset, "y: ",
+                              distance * math.sin(angle) * 0.58 * 9 + y_offset)
+                        print("distance: ", distance, "angle: ", math.ceil(math.degrees(angle)))
                         graph.draw_text("O", location=(
-                            distance * math.cos(angle) * 0.47 + x_offset, distance * math.sin(angle) * 0.58 + y_offset),
+                            distance * math.cos(angle) * 0.47 * 9 + x_offset, distance * math.sin(angle) * 0.58 * 9 + y_offset),
                                         # 225 is offset of x-axis and 0.47 = 215/450,
                                         # +100 is the height of the base line and 0.58 = 260/450 where 260 is the max of the arc
                                         font="any 14", color="light blue")
@@ -162,18 +165,21 @@ def light():
                         else:
                             text_offset = 0
                         graph.draw_text(f'({int(distance)}, {math.ceil(math.degrees(angle))}°)', location=(
-                            distance * math.cos(angle) * 0.47 + x_offset + text_offset,
-                            distance * math.sin(angle) * 0.58 + y_offset - 15),
+                            distance * math.cos(angle) * 0.47 * 9 + x_offset + text_offset,
+                            distance * math.sin(angle) * 0.58 * 9 + y_offset - 15),
                                         font="any 9", color="white")
                         window["_GRAPH_"].update()
                 printscan = False
 
         if event in (None, "Main Menu"):
+            objects.clear()
             break
+
         if event == "rescan!":
             scan = True
             printscan = False
             objects.clear()
+            ldr_scan.clear()
             graph.erase()
             graph.draw_arc((10, -160), (440, 360), 180, 0, style='arc', arc_color='green')
             graph.draw_arc((60, -110), (390, 310), 180, 0, style='arc', arc_color='green')
@@ -184,6 +190,7 @@ def light():
         if event == 'calibration':
             calibrated = calibration(scan)
             objects.clear()
+            ldr_scan.clear()
             scan = True
             printscan = False
             startSweep()
