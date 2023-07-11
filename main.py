@@ -7,9 +7,6 @@ import Object
 import light
 import lightNobjects
 
-s = ser.Serial('COM3', baudrate=9600, bytesize=ser.EIGHTBITS,
-               parity=ser.PARITY_NONE, stopbits=ser.STOPBITS_ONE,
-               timeout=1)  # timeout of 1 sec so that the read and write operations are blocking,
 
 # when the timeout expires the program will continue
 
@@ -18,7 +15,8 @@ s = ser.Serial('COM3', baudrate=9600, bytesize=ser.EIGHTBITS,
 enableTX = True
 
 
-def sendstate(state):
+def sendstate(state, s):
+    global enableTX
     s.reset_output_buffer()
     while (s.out_waiting > 0 or enableTX):
         bytetxstate = bytes(state + '\n', 'ascii')
@@ -28,6 +26,10 @@ def sendstate(state):
 
 
 def main():
+    s = ser.Serial('COM17', baudrate=9600, bytesize=ser.EIGHTBITS,
+                   parity=ser.PARITY_NONE, stopbits=ser.STOPBITS_ONE,
+                   timeout=1)  # timeout of 1 sec where the read and write operations are blocking,
+    # after the timeout the program continues
     global enableTX
     layout = [[sg.T("DCS - Final Project", font="any 30 italic underline", pad=(249, 10), text_color='red')],
               [sg.T("     Light Source and Object proximity\n                   detector system", font="any 34 bold",
@@ -51,45 +53,47 @@ def main():
             break
         if event == "_OBJECT_":  # state 1
             window.hide()
-            sendstate('1')
-            Object.Object()
+            sendstate('1', s)
+            Object.Object(s)
             enableTX = True
-            sendstate('Z')  # end of state! --> in MCU back to state 0
+            sendstate('Z', s)  # end of state! --> in MCU back to state 0
             window.un_hide()
 
         if event == "_TELEMETER_":  # state 2
             window.hide()
             angle = Telemeter.AngleChange()
             if angle:
-                sendstate('2')
-                sendstate(angle)  # first time the angle is sent!
-                Telemeter.Telemeter(angle)
+                sendstate('2', s)
                 enableTX = True
-                sendstate('Z')  # end of state! --> in MCU back to state 0
+                time.sleep(0.1)
+                sendstate(angle, s)  # first time the angle is sent!
+                Telemeter.Telemeter(angle, s)
+                enableTX = True
+                sendstate('Z', s)  # end of state! --> in MCU back to state 0
             window.un_hide()
 
         if event == "_LIGHT_":  # state 3
             window.hide()
-            sendstate('3')
-            light.light()
+            sendstate('3', s)
+            light.light(s)
             enableTX = True
-            sendstate('Z')  # end of state! --> in MCU back to state 0
+            sendstate('Z', s)  # end of state! --> in MCU back to state 0
             window.un_hide()
 
         if event == "_OBJECT&LIGHT_":  # state 4
             window.hide()
-            sendstate('4')
-            lightNobjects.lights_objects()
+            sendstate('4', s)
+            lightNobjects.lights_objects(s)
             enableTX = True
-            sendstate('Z')  # end of state! --> in MCU back to state 0
+            sendstate('Z', s)  # end of state! --> in MCU back to state 0
             window.un_hide()
 
         if event == "_SCRIPT_":  # state 5
             window.hide()
-            sendstate('5')
-            script.ScriptMenu()
+            sendstate('5', s)
+            script.ScriptMenu(s)
             enableTX = True
-            sendstate('Z')  # end of state! --> in MCU back to state 0
+            sendstate('Z', s)  # end of state! --> in MCU back to state 0
             window.un_hide()
     window.close()
     s.close()

@@ -2,6 +2,8 @@ import PySimpleGUI as sg
 import serial as ser
 import time
 
+import main
+
 
 def AngleChange():
     layout = [[sg.T('Wanted angle: '), sg.I(key='_INPUT_', size=(8, 1))],
@@ -20,14 +22,14 @@ def AngleChange():
                              any_key_closes=True)
                     continue
                 window.close()
-                return values['_INPUT_']
+                return str(int(int(values['_INPUT_']) * 13.055 + 350))  #  13.055 = 2530/180
             except Exception:
                 sg.popup("angle must be: \n\n- AN INTEGER!\n\n- bigger then 0\n- smaller then 180\n\n Press any key to close",
                          any_key_closes=True)
 
 
 
-def Telemeter(angle):
+def Telemeter(angle,s):
     layout = [[sg.T('    ', font="any 34 bold "),
                sg.T('Telemeter', font="any 34 bold underline", text_color='red', pad=(120, 10))],
 
@@ -37,10 +39,10 @@ def Telemeter(angle):
               [sg.B("Main Menu", pad=(250, 20))]
               ]
 
-    s = ser.Serial('COM3', baudrate=9600, bytesize=ser.EIGHTBITS,
-                   parity=ser.PARITY_NONE, stopbits=ser.STOPBITS_ONE,
-                   timeout=1)   # timeout of 1 sec so that the read and write operations are blocking,
-                                # when the timeout expires the program will continue
+    # s = ser.Serial('COM17', baudrate=9600, bytesize=ser.EIGHTBITS,
+    #                parity=ser.PARITY_NONE, stopbits=ser.STOPBITS_ONE,
+    #                timeout=1)   # timeout of 1 sec so that the read and write operations are blocking,
+    #                             # when the timeout expires the program will continue
 
     # CHANGE THE COM!!
 
@@ -60,10 +62,11 @@ def Telemeter(angle):
         if event == "_TIMEOUT_":
             while s.in_waiting > 0:
                 charByte = s.readline()  # expect to find '\n' in the end of the distance!
-                str_distance = str(charByte.decode("ascii"))
+                str_distance = str(charByte.decode("utf-8"))
+                print(str_distance)
                 if s.in_waiting == 0:
                     enableTX = True
-                window['_DISTANCE_'].update('Distance: ' + str_distance + ' cm')
+                window['_DISTANCE_'].update('Distance: ' + str(int(str_distance)/58) + ' cm')
         if event == 'change':
             str_angle_temp = AngleChange()
             if (str_angle_temp == None):
@@ -77,4 +80,4 @@ def Telemeter(angle):
                    enableTX = False
             window['_ANGLE_'].update('Known angle: ' + str_angle + '°')
     window.close()
-    s.close()
+    # s.close()
