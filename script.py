@@ -6,13 +6,13 @@ import math
 Commands = {"inc_lcd": "01", "dec_lcd": "02", "rra_lcd": "03", "set_delay": "04", "clear_lcd": "05",
             "servo_deg": "06", "servo_scan": "07", "sleep": "08"}
 Converted_file = []
-s = ser.Serial('COM3', baudrate=9600, bytesize=ser.EIGHTBITS,
-               parity=ser.PARITY_NONE, stopbits=ser.STOPBITS_ONE,
-               timeout=1)   # timeout of 1 sec so that the read and write operations are blocking,
-                            # when the timeout expires the program will continue
+# s = ser.Serial('COM17', baudrate=9600, bytesize=ser.EIGHTBITS,
+#                parity=ser.PARITY_NONE, stopbits=ser.STOPBITS_ONE,
+#                timeout=1)   # timeout of 1 sec so that the read and write operations are blocking,
+#                             # when the timeout expires the program will continue
 
 # CHANGE THE COM!!
-
+global s
 enableTX = True
 GRAPH_SIZE = (450, 450)
 
@@ -283,8 +283,9 @@ def object_window():
                 return window
 
 
-def ScriptMenu():
-    global Converted_file
+def ScriptMenu(com):
+    global Converted_file,s
+    s = com
     layout = [[sg.T("   Script Mode", font="any 30 bold", text_color='red')],
               [sg.B("Script 1", size=(10, 5), key="_S1_"), sg.B("Script 2", size=(10, 5), key="_S2_"),
                sg.B("Script 3", size=(10, 5), key="_S3_")],

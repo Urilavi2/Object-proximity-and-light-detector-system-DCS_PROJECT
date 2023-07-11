@@ -5,15 +5,16 @@ import math
 
 Str_distance = '450'
 
-# s = ser.Serial('COM3', baudrate=9600, bytesize=ser.EIGHTBITS,
+# s = ser.Serial('COM17', baudrate=9600, bytesize=ser.EIGHTBITS,
 #                    parity=ser.PARITY_NONE, stopbits=ser.STOPBITS_ONE,
 #                    timeout=1)   # timeout of 1 sec so that the read and write operations are blocking,
 #                                 # when the timeout expires the program will continue
+#
+# #     # CHANGE THE COM!!
+# #  also change line 95 (explain comment is in line 96) as needed
+# #  notice line 116
 
-#     # CHANGE THE COM!!
-#  also change line 95 (explain comment is in line 96) as needed
-#  notice line 116
-
+global s
 enableTX = True
 
 GRAPH_SIZE = (450, 450)
@@ -59,8 +60,9 @@ def startSweep():
             enableTX = False
     #  end of sending start sweep bit
 
-def Object():
+def Object(com):
     global Str_distance, objects, enableTX, s
+    s = com
     # Define the layout
     layout = [
         [sg.T("        Object Detector", font="any 30 bold", text_color='red', size=(0, 1))],

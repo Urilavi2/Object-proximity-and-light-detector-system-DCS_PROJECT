@@ -5,11 +5,11 @@ import math
 
 Str_distance = '50'
 
-# s = ser.Serial('COM3', baudrate=9600, bytesize=ser.EIGHTBITS,
+# s = ser.Serial('COM17', baudrate=9600, bytesize=ser.EIGHTBITS,
 #                parity=ser.PARITY_NONE, stopbits=ser.STOPBITS_ONE,
 #                timeout=1)  # timeout of 1 sec so that the read and write operations are blocking,
 # when the timeout expires the program will continue
-
+#
 #     # CHANGE THE COM!!
 #  also change line 93 (explain line 94), 109 (explain line 110) as needed
 #  notice line 115
@@ -77,8 +77,9 @@ def popup_new_dis(message):
     return window
 
 
-def light():
+def light(com):
     global Str_distance, objects, enableTX, s, calibrated
+    s = com
     ldr_scan = []
     # Define the layout
     layout = [

@@ -7,13 +7,13 @@ import light
 Str_distance = '450'
 Str_distance_light = '50'
 
-s = ser.Serial('COM3', baudrate=9600, bytesize=ser.EIGHTBITS,
-               parity=ser.PARITY_NONE, stopbits=ser.STOPBITS_ONE,
-               timeout=1)  # timeout of 1 sec so that the read and write operations are blocking,
+# s = ser.Serial('COM17', baudrate=9600, bytesize=ser.EIGHTBITS,
+#                parity=ser.PARITY_NONE, stopbits=ser.STOPBITS_ONE,
+#                timeout=1)  # timeout of 1 sec so that the read and write operations are blocking,
 # when the timeout expires the program will continue
 
 # CHANGE THE COM!!
-
+global s
 enableTX = True
 
 GRAPH_SIZE = (450, 450)
@@ -21,9 +21,10 @@ GRAPH_SIZE = (450, 450)
 objects = []
 
 
-def lights_objects():
+def lights_objects(com):
     ldr_scan = []
     global Str_distance, objects, enableTX, s
+    s = com
     # Define the layout
     layout = [
         [sg.T("Light Sources And Object", font="any 30 bold", text_color='red', size=(0, 1))],
