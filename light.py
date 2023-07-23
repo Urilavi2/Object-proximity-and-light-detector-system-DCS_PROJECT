@@ -4,59 +4,210 @@ import time
 import math
 
 Str_distance = '50'
-
-# s = ser.Serial('COM17', baudrate=9600, bytesize=ser.EIGHTBITS,
-#                parity=ser.PARITY_NONE, stopbits=ser.STOPBITS_ONE,
-#                timeout=1)  # timeout of 1 sec so that the read and write operations are blocking,
-# when the timeout expires the program will continue
-#
-#     # CHANGE THE COM!!
-#  also change line 93 (explain line 94), 109 (explain line 110) as needed
-#  notice line 115
+angle_counter = 0
+N_ADC = 204.6  # 1023 * 0.2 --> Vcc is 5 Volt
+number_of_scan = 21
+break_calibration = False
 
 enableTX = True
 calibrated = False
 GRAPH_SIZE = (450, 450)
 
 objects = []
-
 ldr_calibrated = []
+temp_ldr_calibrated = []
+ldr_measurement = []
 
 
-def calibration(scan):
-    # calibration of both LDR1 and LDR2, computing average of every point in space on MCU and send result
+def scanning(scan, scan_list, s):
+    """ Reading the actual LDR scans """
+    global enableTX, objects, calibrated
+    angle_conter = 0
+    counter = 0
+    scan_popup = popup("scanning for lights...")
+    scan_popup.refresh()  # used to see the window on screen without reading events from it
+    print("start scan!")
+    while scan:
+        i = 0
+        info = [0, 0]
+        while s.in_waiting > 0:  # while the input buffer isn't empty
+            enableTX = False
+            temp = s.readline()
+            tempbyte = str(temp.decode("utf-8"))
+            print("RX: ", tempbyte)
+            if tempbyte[0] == 'c':
+                calibrated = False
+                scan_popup.close()
+                return
+            info[i] = (int(tempbyte))
+            # print(info[i])
+            i = i + 1
+            if i > 1:                                                 # --> plaster
+                print("index i in scanning is bigger then 1!\n")      # --> debugging
+                print("info: ", info, "\n")                           # --> debugging
+                print("objects: ", objects, "\n")                     # --> debugging
+                break
+            info[i] = angle_conter
+            angle_conter += int((1800 / (number_of_scan * 10)) + 0.5)
+            info_temp0 = info[0]/N_ADC  # calculating the actual vlotage
+
+            if info_temp0 >= 5:  # got 1023?
+                info_temp0 = 6  # there is nothing there!
+            real_info = (info_temp0, info[1])
+            scan_list.append(real_info)
+            counter += 1
+            if counter == number_of_scan:
+                print("counter: ", counter, "\n")
+                scan = False
+                break
+
+    scan_popup.close()
+    print("scan_list:\n", scan_list)
+
+
+def calibration(scan, s):
+    """ Calibration of both LDR1 and LDR2, computing average of every point in area on MCU and send result """
+    global enableTX, calibrated, break_calibration, ldr_calibrated, temp_ldr_calibrated
+    temp_ldr_calibrated = ldr_calibrated
     ldr_calibrated.clear()
-    global enableTX, s, calibrated
-    while s.in_waiting > 0 and not scan:  # while the input buffer isn't empty
-        enableTX = False
-        temp = s.readline()
-        char = temp.decode("ascii")
-        if char == 'c':
-            calibrate = popup("Calibrating...")
-        elif char == 'n':
-            change_dis = popup_new_dis("   CHANGE DISTANCE!\n\nmeasurement will not continue until MCU sends data")
-            while s.in_waiting == 0:
-                continue
-            change_dis.close()
-        elif char == 'd':  # calibration done
-            calibrate.close()
-            sg.popup("Calibration finished!", auto_close=True, auto_close_duration=1, any_key_closes=True)
-            enableTX = True
-            calibrated = True
-            return True
-        else:
-            ldr_calibrated.append(int(char))  # reading from MCU LDR average results
+    ldr_measurement.clear()
+
+    start_scan = popup_new_dis("                    SET DISTANCE!\n\nmeasurement will not continue until 'Ok' pressed\n"
+                                           "or received 'o' from MCU (pressing push button 0).\n"
+                           "                   Press Cancel to Exit")
+    st_scan = True
+    while st_scan:
+        eventD, valD = start_scan.read(timeout=50, timeout_key="_TIMEOUT_")
+        if eventD == 'Ok':
+            start_scan.close()
+            break
+        elif eventD == "Cancel":
+            start_scan.close()
+            ldr_measurement.clear()
+            break_calibration = True
+            ldr_calibrated = temp_ldr_calibrated
+            return
+        elif eventD == "_TIMEOUT_":
+            while s.in_waiting > 0:
+                enableTX = False
+                temp = s.readline()
+                char = temp.decode("utf-8")
+                print("start window RX: ", char)
+                if char[0] == 'o':
+                    # received from MCU 'o' to get a new scan. char[0] is a plaster, sometimes we get 'oo'
+                    start_scan.close()
+                    st_scan = False
+    enableTX = True
+    while s.out_waiting > 0 or enableTX:
+        bytetxMsg = bytes('r' + '\n', 'ascii')  # 'r' for MCU is to continue
+        s.write(bytetxMsg)
+        if s.out_waiting == 0:
+            enableTX = False
+    calibrate = popup("Calibrating...")
+    calibrate.refresh()
+    while(1):
+        while s.in_waiting > 0 and scan:  # while the input buffer isn't empty
+            enableTX = False
+            temp = s.readline()
+            char = temp.decode("utf-8")
+            print(char)
+            if char == 'E':  # Error in the correct scan, keep the light in the same distance and try again
+                eror = True
+                error_scan = popup_new_dis(
+                    "        ERROR IN SCAN!        TRY AGAIN!\n\nmeasurement will not continue until 'Ok' pressed\n"
+                    "or received 'o' from MCU (pressing push button 0).\n"
+                           "                   Press Cancel to Exit")
+
+                while eror:
+                    eventD, valD = error_scan.read(timeout=50, timeout_key="_TIMEOUT_")
+                    if eventD == "Ok":
+                        error_scan.close()
+                        break
+                    elif eventD == "Cancel":
+                        error_scan.close()
+                        ldr_measurement.clear()
+                        break_calibration = True
+                        ldr_calibrated = temp_ldr_calibrated
+                        return
+                    elif eventD == "_TIMEOUT_":
+                        while s.in_waiting > 0:
+                            enableTX = False
+                            temp = s.readline()
+                            char = temp.decode("utf-8")
+                            print("error window RX: ", char)
+                            if char[0] == 'o':
+                                # received from MCU 'o' to get a new scan. char[0] is a plaster, sometimes we get 'oo'
+                                error_scan.close()
+                                eror = False
+
+                enableTX = True
+                while s.out_waiting > 0 or enableTX:
+                    bytetxMsg = bytes('r' + '\n', 'ascii')  # 'r' for MCU is to continue
+                    s.write(bytetxMsg)
+                    if s.out_waiting == 0:
+                        enableTX = False
+            elif char == 'n':  # request for changing light distance
+                new_line = True
+                change_dis = popup_new_dis("                  CHANGE DISTANCE!\n\nmeasurement will not continue until 'Ok' pressed\n"
+                                           "or received 'o' from MCU (pressing push button 0).\n"
+                           "                   Press Cancel to Exit")
+
+                while new_line:
+                    eventD, valD = change_dis.read(timeout=50, timeout_key="_TIMEOUT_")
+                    if eventD == "Ok":
+                        change_dis.close()
+                        break
+                    elif eventD == "Cancel":
+                        change_dis.close()
+                        ldr_measurement.clear()
+                        break_calibration = True
+                        ldr_calibrated = temp_ldr_calibrated
+                        return
+                    elif eventD == "_TIMEOUT_":
+                        while s.in_waiting > 0:
+                            enableTX = False
+                            temp = s.readline()
+                            char = temp.decode("utf-8")
+                            print("change distance window RX: ", char)
+                            if char[0] == 'o':
+                                # received from MCU 'o' to get a new scan. char[0] is a plaster, sometimes we get 'oo'
+                                change_dis.close()
+                                new_line = False
+                enableTX = True
+                while s.out_waiting > 0 or enableTX:
+                    bytetxMsg = bytes('r' + '\n', 'ascii')  # 'r' for MCU is to continue
+                    s.write(bytetxMsg)
+                    if s.out_waiting == 0:
+                        enableTX = False
+            elif char == 'd':  # calibration done
+                calibrate.close()
+                print("ldr_measurement:\n", ldr_measurement)  # this list now contain the ldr measurement from the calibration process
+                sg.popup("Calibration finished!", auto_close=True, auto_close_duration=1, any_key_closes=True)
+                for j in range(0, 10):
+                    # now we are building the for ldr calibrated list for every cm from 0 to 50.
+                    for i in range(0, 5):
+                        if j != 0:
+                            m = int(ldr_measurement[j]) - int(ldr_measurement[j - 1]) / 5
+                        else:
+                            m = int(ldr_measurement[j+1]) - int(ldr_measurement[j]) / 5
+                        ldr_calibrated.append((i * m) + ldr_measurement[j])
+                enableTX = True
+                calibrated = True
+                print("ldr_calibrated:\n", ldr_calibrated)
+                return True
+            else:
+                print("this is distance: ", len(ldr_measurement))
+                ldr_measurement.append((int(char) / N_ADC))  # reading from MCU the LDR average results
 
 
-def startSweep():
+def startSweep(char, s):
     global enableTX
-    global s
     # tx to mcu to start sweep
     enableTX = True
     s.reset_output_buffer()
     s.reset_input_buffer()
     while s.out_waiting > 0 or enableTX:  # while the output buffer isn't empty
-        bytetxMsg = bytes('1' + '\n', 'ascii')  # '1' for MCU is to start sweep
+        bytetxMsg = bytes(char + '\n', 'ascii')  # 'r' for MCU is to start sweep
         s.write(bytetxMsg)
         if s.out_waiting == 0:
             enableTX = False
@@ -64,23 +215,44 @@ def startSweep():
 
 
 def popup(message):
-    sg.theme('DarkGrey')
-    layout = [[sg.Text(message)]]
-    window = sg.Window('Message', layout, no_titlebar=True, finalize=True)
+    layout = [[sg.Text(message, font="any 16", text_color="red")]]
+    window = sg.Window('Message', layout, no_titlebar=True, keep_on_top=True, finalize=True)
     return window
 
 
 def popup_new_dis(message):
-
-    layout = [[sg.Text(message)], [sg.B('Ok')]]
+    layout = [[sg.Text(message)], [sg.T("              "), sg.B('Ok', size=(6,2)),sg.T("  "), sg.B('Cancel', size=(6,2))]]
     window = sg.Window('Message', layout, no_titlebar=True, keep_on_top=True, finalize=True)
     return window
 
 
 def light(com):
-    global Str_distance, objects, enableTX, s, calibrated
+
+    global Str_distance, objects, enableTX, s, calibrated, break_calibration
     s = com
     ldr_scan = []
+    x_offset = 225
+    y_offset = 100
+    scan = True
+    printscan = True
+    # tx to mcu to start sweep
+    print("calibrated status: ", calibrated)
+    while not calibrated:
+        calibrated = calibration(scan, s)
+        if break_calibration:
+            return
+    if calibrated:
+        startSweep('r', s)
+        scanning(scan, ldr_scan,s)
+        while not calibrated:  # if received 'c' from push button during the scan
+            calibrated = calibration(scan, s)
+            if break_calibration:
+                break_calibration = False
+                return
+            scanning(scan, ldr_scan, s)
+        scan = False
+    #  end of sending start sweep bit
+
     # Define the layout
     layout = [
         [sg.T("         Light Detector", font="any 30 bold", text_color='red', size=(0, 1))],
@@ -101,104 +273,134 @@ def light(com):
     graph.draw_arc((60, -110), (390, 310), 180, 0, style='arc', arc_color='green')
     graph.draw_arc((110, -60), (340, 260), 180, 0, style='arc', arc_color='green')
     graph.DrawLine((10, 100), (440, 100), width=2, color="white")
-    x_offset = 225
-    y_offset = 100
-    scan = True
-    printscan = False
-    # tx to mcu to start sweep
-    while not calibrated:
-        calibrated = calibration(scan)
-    if calibrated:
-        startSweep()
-    #  end of sending start sweep bit
     while True:
-        event, values = window.read(timeout=1000, timeout_key="_TIMEOUT_")
-        #  1 second timeout for now, need to calculate the time to first send
+        event, values = window.read(timeout=50, timeout_key="_TIMEOUT_")
+        #  worked with timeout=200 (with no push button read!), change timeout to 50 cause of calibration button
 
-        if event == '_TIMEOUT_' and not calibrated:
-            sg.popup("need to calibrate LDRs first!!", font="any 20 bold", auto_close=True, auto_close_duration=1.5,
-                     text_color="dark red", button_type=5, no_titlebar=True)
-
-        if event == '_TIMEOUT_' and scan and calibrated:
-            while scan:
-                i = 0
-                info = [0, 0]
-                # RX
-                while s.in_waiting > 0:  # while the input buffer isn't empty
-                    enableTX = False
-                    temp = s.readline()
-                    # receive until '\n' -> first receive the LDR average real scan result from MCU
-                    # and then the angle of a relevant object
-                    info[i] = (int(temp.decode("ascii")))
-                    i = i + 1
-                if i == 3:
-                    i = 0
-                    ldr_scan.append((int(info[0]), int(info[1])))
-                    if s.in_waiting == 0:
-                        enableTX = True
-                        scan = False  # need to make sure that s.in_waiting is not empty between sending distance and angle
+        if event == '_TIMEOUT_':
+            while s.in_waiting > 0:  # for reading the push button 0 press
+                enableTX = False
+                temp = s.read()
+                char = temp.decode("utf-8")
+                print("char: ", char, "char[0]: ", char[0])
+                if char[0] == 'c':
+                    s.reset_input_buffer()
+                    calibrated = calibration(True, s)
+                    if break_calibration:
+                        break_calibration = False
+                        break
+                    else:
                         printscan = True
-            #  END OF RX
-            if printscan:
-                # establish objects list
-                for i in range(0, len(ldr_scan)):
-                    for j in range(0, len(ldr_calibrated)):
-                        if abs(ldr_calibrated[j] - ldr_scan[i][0]) < 10:  # MAYBE LESS THAN 10....
-                            objects.append((j, ldr_scan[i][1]))
-                # objects list ready
-                for i in range(0, len(objects)):
-                    distance = objects[i][0] + 1
-                    angle = math.radians(objects[i][1])
-                    if distance <= int(Str_distance):
-                        print("LIGHT SOURCE:")
-                        print("x: ", distance * math.cos(angle) * 0.47 * 9 + x_offset, "y: ",
-                              distance * math.sin(angle) * 0.58 * 9 + y_offset)
-                        print("distance: ", distance, "angle: ", math.ceil(math.degrees(angle)))
-                        graph.draw_text("O", location=(
-                            distance * math.cos(angle) * 0.47 * 9 + x_offset, distance * math.sin(angle) * 0.58 * 9 + y_offset),
-                                        # 225 is offset of x-axis and 0.47 = 215/450,
-                                        # +100 is the height of the base line and 0.58 = 260/450 where 260 is the max of the arc
-                                        font="any 14", color="light blue")
-                        if (math.ceil(math.degrees(angle))) > 160:
-                            text_offset = 8
-                        elif (math.ceil(math.degrees(angle))) < 20:
-                            text_offset = -8
-                        else:
-                            text_offset = 0
-                        graph.draw_text(f'({int(distance)}, {math.ceil(math.degrees(angle))}°)', location=(
-                            distance * math.cos(angle) * 0.47 * 9 + x_offset + text_offset,
-                            distance * math.sin(angle) * 0.58 * 9 + y_offset - 15),
-                                        font="any 9", color="white")
-                        window["_GRAPH_"].update()
-                printscan = False
+
+            if calibrated:
+                if printscan:  # print the scans
+                    # establish objects list
+                    print('printing on screen!')
+                    for i in range(0, len(ldr_scan)):
+                        voltage = ldr_scan[i][0]
+                        if voltage > 5:
+                            continue
+                        for j in range(0, len(ldr_calibrated)):
+                            if abs(ldr_calibrated[j] - voltage) < 0.017:  # PLAY WITH MARGIN!
+                                objects.append((j, ldr_scan[i][1]))
+                    # objects list ready
+                    print("object list:\n", objects)
+                    printscan = False
+                    for i in range(0, len(objects)):  # putting the objects on the graph
+                        distance = objects[i][0] + 1
+                        angle = math.radians(objects[i][1])
+                        if distance <= int(Str_distance):
+                            graph.draw_text("O", location=(
+                                distance * math.cos(angle) * 0.47 * 9 + x_offset, distance * math.sin(angle) * 0.58 * 9 + y_offset),
+                                            # 225 is offset of x-axis and 0.47 = 215/450,     TIMES 9 TO SCALE THE 50cm TO THE END OF THE GRAPH
+                                            # +100 is the height of the base line and 0.58 = 260/450 where 260 is the max of the arc
+                                            font="any 14", color="light blue")
+                            if (math.ceil(math.degrees(angle))) > 160:
+                                text_offset = 8
+                            elif (math.ceil(math.degrees(angle))) < 20:
+                                text_offset = -8
+                            else:
+                                text_offset = 0
+                            graph.draw_text(f'({int(distance)}, {math.ceil(math.degrees(angle))}°)', location=(
+                                distance * math.cos(angle) * 0.47 * 9 + x_offset + text_offset,
+                                distance * math.sin(angle) * 0.58 * 9 + y_offset - 15),
+                                            font="any 9", color="white")
+                            window["_GRAPH_"].update()
+
+            else:
+                sg.popup("need to calibrate LDRs first!!", font="any 20 bold", auto_close=True,
+                         auto_close_duration=1,
+                         text_color="dark red", button_type=5, no_titlebar=True)
 
         if event in (None, "Main Menu"):
             objects.clear()
             break
 
-        if event == "rescan!":
-            scan = True
-            printscan = False
+        if event == "Rescan!":
             objects.clear()
             ldr_scan.clear()
             if calibrated:
+                scan = True
+
                 graph.erase()
                 graph.draw_arc((10, -160), (440, 360), 180, 0, style='arc', arc_color='green')
                 graph.draw_arc((60, -110), (390, 310), 180, 0, style='arc', arc_color='green')
                 graph.draw_arc((110, -60), (340, 260), 180, 0, style='arc', arc_color='green')
                 graph.DrawLine((10, 100), (440, 100), width=2, color="white")
-                startSweep()
+                window.hide()
+                startSweep('r', s)
+                scanning(scan, ldr_scan, s)
+                while not calibrated:  # if received 'c' from push button during the scan
+                    calibrated = calibration(scan, s)
+                    if break_calibration:  # if hit Cancel in the calibration mode stay with the last calibration
+                        break_calibration = False
+                        calibrated = True
+                        enableTX = True
+                        while s.out_waiting > 0 or enableTX:
+                            bytetxMsg = bytes('d' + '\n', 'ascii')
+                            # 'd' for MCU is to tell that ldr are calibrated and calibration function is canceled
+                            s.write(bytetxMsg)
+                            if s.out_waiting == 0:
+                                enableTX = False
+                        break
+                    objects.clear()
+                    ldr_scan.clear()
+                    scanning(scan, ldr_scan, s)
+                printscan = True
+                window.un_hide()
             else:
-                sg.popup("need to calibrate LDRs first!!", font="any 20 bold", auto_close=True, auto_close_duration=1.5,
+                sg.popup("need to calibrate LDRs first!!", font="any 20 bold", auto_close=True, auto_close_duration=1,
                          text_color="dark red", button_type=5, no_titlebar=True)
 
         if event == 'calibration':
-            calibrated = calibration(scan)
+            window.hide()
+            scan = True
+            startSweep('c', s)
+            calibrated = calibration(scan, s)
+            if break_calibration:
+                break_calibration = False
+                continue
             objects.clear()
             ldr_scan.clear()
-            scan = True
-            printscan = False
-            startSweep()
+            scanning(scan, ldr_scan, s)
+            while not calibrated:  # if received 'c' from push button during the scan
+                calibrated = calibration(scan, s)
+                if break_calibration:  # if hit Cancel in the calibration mode stay with the last calibration
+                    break_calibration = False
+                    calibrated = True
+                    enableTX = True
+                    while s.out_waiting > 0 or enableTX:
+                        bytetxMsg = bytes('d' + '\n', 'ascii')
+                        # 'd' for MCU is to tell that ldr are calibrated and calibration function is canceled
+                        s.write(bytetxMsg)
+                        if s.out_waiting == 0:
+                            enableTX = False
+                    break
+                objects.clear()
+                ldr_scan.clear()
+                scanning(scan, ldr_scan, s)
+            printscan = True
+            window.un_hide()
 
     window.close()
-    s.close()
+

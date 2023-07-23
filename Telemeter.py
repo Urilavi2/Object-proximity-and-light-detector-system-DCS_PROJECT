@@ -3,9 +3,13 @@ import serial as ser
 import time
 
 import main
-
-
+avg_arr = [0, 0, 0]
+angle_calc = lambda angle: int(int(angle) * 10 + 350)  #  1800 = 2150-350
+sound_speed = (331.3 + 0.606 * 35) * 100
+range_cm = lambda cycles: (sound_speed / 2) * cycles * (1/(2**20))
 def AngleChange():
+    """ checking weather the input is valid
+            if True, returns the string of the input, else popup an error and try again """
     layout = [[sg.T('Wanted angle: '), sg.I(key='_INPUT_', size=(8, 1))],
               [sg.B('Ok'), sg.B('Cancel')]]
     window = sg.Window('AngleUpdater', layout)
@@ -22,7 +26,7 @@ def AngleChange():
                              any_key_closes=True)
                     continue
                 window.close()
-                return str(int(int(values['_INPUT_']) * 13.055 + 350))  #  13.055 = 2530/180
+                return values['_INPUT_']
             except Exception:
                 sg.popup("angle must be: \n\n- AN INTEGER!\n\n- bigger then 0\n- smaller then 180\n\n Press any key to close",
                          any_key_closes=True)
@@ -30,6 +34,7 @@ def AngleChange():
 
 
 def Telemeter(angle,s):
+
     layout = [[sg.T('    ', font="any 34 bold "),
                sg.T('Telemeter', font="any 34 bold underline", text_color='red', pad=(120, 10))],
 
@@ -39,14 +44,6 @@ def Telemeter(angle,s):
               [sg.B("Main Menu", pad=(250, 20))]
               ]
 
-    # s = ser.Serial('COM17', baudrate=9600, bytesize=ser.EIGHTBITS,
-    #                parity=ser.PARITY_NONE, stopbits=ser.STOPBITS_ONE,
-    #                timeout=1)   # timeout of 1 sec so that the read and write operations are blocking,
-    #                             # when the timeout expires the program will continue
-
-    # CHANGE THE COM!!
-
-
     enableTX = True
     str_angle = str(angle)
     str_distance = '0'
@@ -55,29 +52,42 @@ def Telemeter(angle,s):
     window['_ANGLE_'].update('Known angle: ' + str_angle + '°')
     window['_DISTANCE_'].update('Distance: ' + str_distance + ' cm')
     s.reset_input_buffer()
+    avg_idx = 0
     while True:
         event, values = window.read(timeout_key="_TIMEOUT_", timeout=300)  # 0.3 sec between sends --> check it!!
         if event in (None, "Main Menu"):
             break
         if event == "_TIMEOUT_":
             while s.in_waiting > 0:
-                charByte = s.readline()  # expect to find '\n' in the end of the distance!
+                charByte = s.readline()
                 str_distance = str(charByte.decode("utf-8"))
                 print(str_distance)
                 if s.in_waiting == 0:
                     enableTX = True
-                window['_DISTANCE_'].update('Distance: ' + str(int(str_distance)/58) + ' cm')
+                if avg_idx < 3:  # appending to the average array 3 samples
+                    if int(str_distance) > 0:
+                        avg_arr[avg_idx] = int(str_distance)
+                        avg_idx += 1
+                    print(avg_arr)
+                else:
+                    avg_idx = 0
+                    # display the average of 3 samples
+                    window['_DISTANCE_'].update('Distance: ' + str(int(range_cm(sum(avg_arr)/len(avg_arr)))) + ' cm')
+
         if event == 'change':
             str_angle_temp = AngleChange()
             if (str_angle_temp == None):
                 continue
-            str_angle = str_angle_temp
+            str_angle = str(angle_calc(str_angle_temp))  # calculating angle for the required PWM high level
+            print("angle: ", str_angle)
             s.reset_output_buffer()
+            enableTX = True
             while s.out_waiting > 0 or enableTX:
                 bytetxangle = bytes(str_angle + '\n', 'ascii')
-                s.write(bytetxangle)
+                s.write(bytetxangle)  # sending the angle after calculating it for the required PWM high level
                 if s.out_waiting == 0:
                    enableTX = False
-            window['_ANGLE_'].update('Known angle: ' + str_angle + '°')
+            window['_ANGLE_'].update('Known angle: ' + str_angle_temp + '°')
     window.close()
-    # s.close()
+
+
