@@ -18,7 +18,7 @@ def autoPort():
         if 'USB-to-Serial Comm Port' in port.description:
             print("found MSP430 UART port: ", port)
             # Connection to port
-            s = serial.Serial(port.device,baudrate=9600, bytesize=ser.EIGHTBITS,
+            s = ser.Serial(port.device,baudrate=9600, bytesize=ser.EIGHTBITS,
                    parity=ser.PARITY_NONE, stopbits=ser.STOPBITS_ONE,
                    timeout=1)
             # timeout of 1 sec where the read and write operations are blocking,
@@ -47,6 +47,7 @@ def sendstate(state, s):
 
 def main():
     s = autoPort()
+    s.reset_input_buffer()
     global enableTX
     layout = [[sg.T("DCS - Final Project", font="any 30 italic underline", pad=(249, 10), text_color='red')],
               [sg.T("     Light Source and Object proximity\n                   detector system", font="any 34 bold",
@@ -61,23 +62,26 @@ def main():
                sg.B("Script\nMode", key="_SCRIPT_", size=(10, 5), button_color=("white", "red"), pad=(25, 5))],
               [sg.B("Exit", key="_EXIT_", size=(10, 2), pad=(370, 50))]]
 
-    window = sg.Window("Light Source and Object proximity", layout, location=(500, 100), size=(900, 700))
+    window = sg.Window("Light Source and Object proximity", layout, location=(350, 50), size=(900, 700))
 
     while True:
         event, values = window.read(timeout=50, timeout_key="_TIMEOUT_")
         if event in (None, "_EXIT_"):
-            sg.popup("goodbye!", auto_close=True, auto_close_duration=0.5)
+            sg.popup("goodbye!", auto_close=True, auto_close_duration=0.5, no_titlebar=True, font="any 30 italic",
+                     button_type=5, text_color="purple", background_color='white')
             break
 
         if event == "_OBJECT_":  # state 1
             window.hide()
-            enableTX = True
-            sendstate('1', s)
-            time.sleep(0.25)
-            Object.Object(s)
-            enableTX = True
-            sendstate('Z', s)  # end of state! --> in MCU back to state 0
-            time.sleep(0.25)
+            distance = Object.LimitChange()
+            if distance:  # if hitting the cancel button, angle equals None and nothing happened
+                enableTX = True
+                sendstate('1', s)
+                time.sleep(0.25)
+                Object.Object(s, distance)
+                enableTX = True
+                sendstate('Z', s)  # end of state! --> in MCU back to state 0
+                time.sleep(0.25)
             window.un_hide()
 
         if event == "_TELEMETER_":  # state 2
@@ -86,7 +90,6 @@ def main():
             if angle:  # if hitting the cancel button, angle equals None and nothing happened
                 enableTX = True
                 sendstate('2', s)
-
                 time.sleep(0.25)
                 enableTX = True
                 print("angle: ", Telemeter.angle_calc(angle))  # for debugging
@@ -107,12 +110,14 @@ def main():
             window.un_hide()
 
         if event == "_OBJECT&LIGHT_":  # state 4
-            window.hide()
-            enableTX = True
-            sendstate('4', s)
-            lightNobjects.lights_objects(s)
-            enableTX = True
-            sendstate('Z', s)  # end of state! --> in MCU back to state 0
+            distance = Object.LimitChange()
+            if distance:  # if hitting the cancel button, angle equals None and nothing happened
+                window.hide()
+                enableTX = True
+                sendstate('4', s)
+                lightNobjects.lights_objects(s, distance)
+                enableTX = True
+                sendstate('Z', s)  # end of state! --> in MCU back to state 0
             window.un_hide()
 
         if event == "_SCRIPT_":  # state 5
@@ -130,7 +135,7 @@ def main():
                 temp = s.readline()
                 char = temp.decode("ascii")
                 print("main RX: ", char)
-                if char == 'c':
+                if char[0] == 'c':
                     light.calibrated = light.calibration(True, s)
     window.close()
     s.close()

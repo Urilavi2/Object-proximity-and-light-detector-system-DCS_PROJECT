@@ -11,6 +11,9 @@ extern void calibration();
 extern void light();
 extern void script();
 extern void light_and_objects();
+extern int hex_to_int(char* hex);
+extern int degree_to_PWM(int degree);
+extern void read_script(int script);
 
 
 #endif

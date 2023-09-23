@@ -5,7 +5,7 @@ import math
 
 
 temperature = 25
-number_of_scan = 21
+number_of_scan = 61
 Str_distance = '450'
 angle_calc = lambda angle: int((angle - 350) / 10)  #  1800 = 2150 -350
 sound_speed = (331.3 + 0.606 * temperature) * 100
@@ -18,7 +18,7 @@ enableTX = True
 scaleX = 2
 scaleY = 1.5
 GRAPH_SIZE = (450*scaleX, int(450*scaleY)-100)
-
+final_list_objects = []
 objects = []
 
 
@@ -41,7 +41,7 @@ def scanning(scan, objects, s, left=0, right=180):
     """ Getting the Echo high level time in cycles and appending it with the right angle to the object array """
     global enableTX
     margin1 = angle_calc_to_PWM(right) - angle_calc_to_PWM(left)
-    number_of_scan1 = margin1 / 90 + 1
+    number_of_scan1 = int(margin1 / 30) + 1
     angle_conter = 0
     counter = 0
     scan_popup = popup("scanning objects...")
@@ -55,7 +55,7 @@ def scanning(scan, objects, s, left=0, right=180):
             enableTX = False
             temp = s.readline()
             tempbyte = str(temp.decode("utf-8"))
-            print("RX: ", tempbyte)
+            # print("RX: ", tempbyte)
             info[i] = (int(tempbyte))
             i = i + 1
             if i > 1:  # plaster
@@ -88,7 +88,7 @@ def scanning(scan, objects, s, left=0, right=180):
                 break
 
     scan_popup.close()
-    print(objects)
+    # print(objects)
 
 def LimitChange():
     """ checking weather the input is valid
@@ -130,11 +130,13 @@ def startSweep(com):
             enableTX = False
     #  end of sending start sweep bit
 
-def Object(com):
+def Object(com, limit):
     global Str_distance, objects, enableTX, s
     s = com
+    Str_distance = str(limit)
     x_offset = 225*scaleX
     y_offset = int(100*scaleY) - 100
+    objects.clear()
     startSweep(com)
     scanning(True, objects, s)
     scan = False
@@ -144,9 +146,7 @@ def Object(com):
     layout = [
         [sg.T("                          Object Detector", font="any 30 bold", text_color='red', size=(0, 1))],
         [sg.T("                                  System", font="any 30 bold", text_color='red')],
-        # [sg.T(" ", size=(1, 2))],
         [sg.T("", font="any 14", key="_DISTANCE_"), sg.B('change', button_color=('dark blue', 'white'))],
-        # [sg.T(" ", size=(1, 2))],
         [sg.Graph(canvas_size=GRAPH_SIZE, graph_top_right=GRAPH_SIZE, graph_bottom_left=(0, 0),
                   background_color='black', key="_GRAPH_")],
         [sg.B("Rescan!"), sg.T("                            "), sg.B("Main Menu", pad=(100 * scaleX, 2)),
@@ -173,21 +173,22 @@ def Object(com):
         event, values = window.read(timeout=200, timeout_key="_TIMEOUT_")
 
         if event == '_TIMEOUT_' and not scan:
-            # angle_distinguish = 1  # ANGLE_DISTINGUISH VARIABLE AND ALL OF IT'S LOGIC IS USED FOR SENSITIVITY OF SCANS
+            final_list_objects.clear()
+            angle_distinguish = 1  # ANGLE_DISTINGUISH VARIABLE AND ALL OF IT'S LOGIC IS USED FOR SENSITIVITY OF SCANS
             for i in range(0, len(objects)):
                 distance = objects[i][0]
                 angle = math.radians(objects[i][1])
-                # if distance > objects[i-1][0] + 6 or distance + 6 < objects[i-1][0] and i != 0:
-                #     angle_distinguish += 1
-                #     if angle_distinguish > 3:
-                #         angle_distinguish = 1
-                # else:
-                #     angle_distinguish = 1
-                if distance <= int(Str_distance) and distance > 1:
-                    # print("OBJECT:")                                                          --> debugging
-                    # print("x: ", distance * math.cos(angle) * 0.47 + x_offset, "y: ",         --> debugging
-                    #       distance * math.sin(angle) * 0.58 + y_offset)                       --> debugging
-                    # print("distance: ", distance, "angle: ", math.ceil(math.degrees(angle)))  --> debugging
+                if (distance < objects[i-1][0] + 6 and distance + 6 > objects[i-1][0]) and i != 0:
+                    angle_distinguish += 1
+                    if angle_distinguish > 3:  # only 3 angles ahead --> every 9 degrees it must be a new object!
+                        angle_distinguish = 1
+                    else:  # the scan is in the range of duplicate objects
+                        continue
+                else:
+                    angle_distinguish = 1
+                if distance > 0:
+                    final_list_objects.append((distance, objects[i][1]))
+                if int(Str_distance) >= distance > 1:
                     graph.draw_text("X", location=(
                         distance * math.cos(angle) * (43/90) * scaleX + x_offset,
                         distance * math.sin(angle) * (26/45) * scaleY + y_offset),
@@ -217,9 +218,9 @@ def Object(com):
             if str_distance_temp is None:
                 continue
             Str_distance = str_distance_temp
-            window['_DISTANCE_'].update('                    Limit Distance: ' + Str_distance + ' cm')
+            window['_DISTANCE_'].update(
+                '                                                              Limit Distance: ' + Str_distance + ' cm')
             scan = True
-            # printscan = False
             graph.erase()
             objects.clear()
             graph.draw_arc((10 * scaleX, int(-160 * scaleY) - 100), (440 * scaleX, int(360 * scaleY) - 100), 180, 0,
@@ -241,7 +242,6 @@ def Object(com):
 
         if event == "Rescan!":
             scan = True
-            # printscan = False
             graph.erase()
             objects.clear()
             graph.draw_arc((10 * scaleX, int(-160 * scaleY) - 100), (440 * scaleX, int(360 * scaleY) - 100), 180, 0,
@@ -263,17 +263,21 @@ def Object(com):
 
         if event == "_OBJECTS_":
             if not list_window:
+                # print(final_list_objects)
+                string_list = ""
+                for i in range(0, len(final_list_objects)):
+                    if 1 < final_list_objects[i][0] <= int(Str_distance):
+                        string_list = string_list + "distance: " + str(final_list_objects[i][0]) + " cm,  angle: " + str(final_list_objects[i][1]) + "°\n"
+
                 list_of_objects_layout = [[sg.T("List Of Objects", font="any 20 bold underline", text_color="red")],
-                                          [[sg.T("distance: " + str(objects[i][0]) + " cm," "  angle: " + str(objects[i][1]) + "°",
-                                                 text_color="white")] for i in range(0, len(objects)) if
-                                                    (1 < objects[i][0] <= int(Str_distance))],  # no sensitivity here
-                                          [sg.B("close")]]
+                                          [sg.Multiline(string_list, size=(40, 10), text_color='white',
+                                                        background_color="blue")], [sg.B("close")]]
                 list_of_objects_window = sg.Window('Objects list', list_of_objects_layout)
                 window.hide()
                 Oevent, Oval = list_of_objects_window.read()
                 list_window = True
 
-        if list_window:
+        if list_window:  # relevant only if the list of object window is open
             if Oevent in (None, "close"):
                 list_of_objects_window.close()
                 list_window = False

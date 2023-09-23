@@ -4,7 +4,7 @@ import time
 
 import main
 avg_arr = [0, 0, 0]
-angle_calc = lambda angle: int(int(angle) * 10 + 350)  #  1800 = 2150-350
+angle_calc = lambda angle: int(int(angle) * 10 + 490)  #  1800 = 2290-490
 sound_speed = (331.3 + 0.606 * 35) * 100
 range_cm = lambda cycles: (sound_speed / 2) * cycles * (1/(2**20))
 def AngleChange():

@@ -1,8 +1,8 @@
 #include  "../header/halGPIO.h"     // private library - HAL layer
 
 
-#define NUM_OF_SCANS        21
-int findme  =15;
+#define NUM_OF_SCANS        61
+
 int ldr1[10];
 int ldr2[10];
 unsigned int ldr_idx = 0;
@@ -27,7 +27,7 @@ int angle;
 char str_dis[7];
 unsigned int dis_idx = 0;
 unsigned int temp[2];
-char calibration_flag = '1';
+char calibration_flag = '1';  // 1 not ready, 0 is calibrated!!!!!! 4 is cancel from PC
 unsigned int Xdelay = 0x5555;  // halfsec
 unsigned int Xdelay_counter = 0;
 const unsigned int delay_10ms = 0x01B6;  //0x01b4
@@ -39,6 +39,7 @@ char *flash_ptrD;
 int flash_B_flag = 0;
 int flash_C_flag = 0;
 int flash_D_flag = 0;
+char prev_calibrate_state = '1';
 
 
 struct script_segment{
@@ -65,8 +66,23 @@ void sysConfig(void){
     scripts.script_name[1] = "2";
     scripts.script_name[2] = "3";
     scripts.ptr_arr[0] = (char *)0x1080;  // segment B
-    scripts.ptr_arr[0] = (char *)0x1040;  // segment C
-    scripts.ptr_arr[0] = (char *)0x1000;  // segment D
+    scripts.ptr_arr[1] = (char *)0x1040;  // segment C
+    scripts.ptr_arr[2] = (char *)0x1000;  // segment D
+    set_flash();
+
+}
+
+void set_flash(){
+    erase_flash();
+    *scripts.ptr_arr[0] = 0;  // segment B
+    stop_write_flash();
+    erase_flash();
+    *scripts.ptr_arr[1] = 0;  // segment C
+    stop_write_flash();
+    erase_flash();
+    *scripts.ptr_arr[2] = 0;  // segment D
+    stop_write_flash();
+
 
 }
 
@@ -271,7 +287,7 @@ void send_distance_list(){
 void set_SemiCircle_timer(int num){
     flag = 2;
     TA1CCR0 = 20000;           //PWM period
-    TA1CCR1 = num;             //CCR1 PWM Duty Cycle  !min 350 max 2600 angle 190, //350 2350-180 degrees
+    TA1CCR1 = num;             //CCR1 PWM Duty Cycle  !min 350 max 2350 angle 200, //350 2350-200 degrees
     TA1CCTL1 = OUTMOD_7;       //CCR1 selection reset-set
     TA1CTL = TASSEL_2 + MC_1;
 
@@ -318,6 +334,7 @@ int get_angle(){
 
 
 void send_distance(){
+
     sprintf(str_dis, "%d", diff);
     dis_idx = 0;
     IE2 |= UCA0TXIE;                       // enable USCI_A0 TX interrupt
@@ -335,8 +352,9 @@ void stop_USDscan(){
 // ------------------------------------------------------------------
 //                       STATE 3
 // ------------------------------------------------------------------
-void set_calibration_flag(){
-    calibration_flag = '0';
+void set_calibration_flag(char oldstate){
+    ldr_idx = 0;
+    calibration_flag = oldstate;  // 1 not ready, 0 is calibrated!!!!!! 4 is cancel from PC
 }
 
 void startADC_ldr1(){
@@ -395,7 +413,7 @@ void ADC_append(){
     if (ADC_idx > NUM_OF_SCANS - 1){
         ADC_idx = 0;
     }
-    ADC_list[ADC_idx] = (ldr1[ldr_idx] + ldr2[ldr_idx]) >> 1;;
+    ADC_list[ADC_idx] = (ldr1[ldr_idx] + ldr2[ldr_idx]) >> 1;
     ADC_idx ++;
 }
 
@@ -428,6 +446,17 @@ char calibrated(){
 // ------------------------------------------------------------------
 
 void count_up_LCD(int num){
+    int temp_got_script, temp_script_size1, temp_flagB, temp_flagC, temp_flagD, temp_cliab_flag, temp_xDel, temp_xcounter;
+    temp_got_script = got_script;
+    temp_script_size1 = temp_script_size;
+    temp_flagB = flash_B_flag;
+    temp_flagC = flash_C_flag;
+    temp_flagD = flash_D_flag;
+    temp_cliab_flag = calibration_flag;
+    temp_xDel = Xdelay;
+    temp_xcounter = Xdelay_counter;
+    // for some reason, the sprintf() overwrite these variables in RAM.
+    // we are 12 hours before submission, therefore the solution is easy and dumb.
     char counter_str[4];
     int counter_idx;
     for (counter_idx = 0; counter_idx <= num; counter_idx ++){
@@ -435,6 +464,16 @@ void count_up_LCD(int num){
             break;
         }
         sprintf(counter_str, "%d", counter_idx);
+        got_script = temp_got_script;
+        temp_script_size = temp_script_size1;
+        flash_B_flag = temp_flagB;
+        flash_C_flag = temp_flagC;
+        flash_D_flag = temp_flagD;
+        calibration_flag = temp_cliab_flag;
+        Xdelay = temp_xDel;
+        Xdelay_counter = temp_xcounter;
+        // for some reason, the sprintf() overwrite these variables in RAM.
+        // we are 12 hours before submission, therefore the solution is easy and dumb.
         lcd_clear();
         lcd_puts(counter_str);
         script_delay();
@@ -443,7 +482,17 @@ void count_up_LCD(int num){
 
 
 void count_down_LCD(int num){
-
+    int temp_got_script, temp_script_size1, temp_flagB, temp_flagC, temp_flagD, temp_cliab_flag, temp_xDel, temp_xcounter;
+    temp_got_script = got_script;
+    temp_script_size1 = temp_script_size;
+    temp_flagB = flash_B_flag;
+    temp_flagC = flash_C_flag;
+    temp_flagD = flash_D_flag;
+    temp_cliab_flag = calibration_flag;
+    temp_xDel = Xdelay;
+    temp_xcounter = Xdelay_counter;
+    // for some reason, the sprintf() overwrite these variables in RAM.
+    // we are 12 hours before submission, therefore the solution is easy and dumb.
     char counter_str[4];
     int counter_idx;
     sprintf(counter_str, "%d", num);
@@ -452,6 +501,16 @@ void count_down_LCD(int num){
             break;
         }
         sprintf(counter_str, "%d", counter_idx);
+        got_script = temp_got_script;
+        temp_script_size = temp_script_size1;
+        flash_B_flag = temp_flagB;
+        flash_C_flag = temp_flagC;
+        flash_D_flag = temp_flagD;
+        calibration_flag = temp_cliab_flag;
+        Xdelay = temp_xDel;
+        Xdelay_counter = temp_xcounter;
+        // for some reason, the sprintf() overwrite these variables in RAM.
+        // we are 12 hours before submission, therefore the solution is easy and dumb.
         lcd_clear();
         lcd_puts(counter_str);
         script_delay();
@@ -503,7 +562,7 @@ void pixel_char_moving(char c){
 
 void servo_deg(int degree){
     set_SemiCircle_timer(degree);
-    TimerWait(0xAAAA);
+    TimerWait(0xFFFF);
     stopPWM();
     enable_interrupts();
     UDSconfig();
@@ -512,11 +571,12 @@ void servo_deg(int degree){
     if (state != state5){
         return;
     }
+    stopPWM();
     send_distance();
     enterLPM(lpm_mode);
-    done_flag = '1';
-    send_angle(degree);
-    done_flag = '0';
+    //done_flag = '1';
+    //send_angle(degree);
+    //done_flag = '0';
 }
 
 
@@ -527,16 +587,14 @@ void servo_scan_script(int left, int right){
     distance_idx = 0;
     int scan_counter = 0;
     enable_interrupts();
-    for(k=left; k<=right; k = k + 90){ // IF CHANGING ANGLES, CHANGE THE 60!
-        if (k == left + 90){
-            set_SemiCircle_timer(left+140);
-        }
-       else{
+    for(k=left; k<=right; k = k + 30){ // IF CHANGING ANGLES, CHANGE THE 60!
+        //if (k == left + 90){
+         //   set_SemiCircle_timer(left+140);
+       // }
+       //else{
             set_SemiCircle_timer(k);
-        }
-        TimerWait(0x7FFF);
-        //TimerWait(eightsec);
-        //TimerWait(thirdhalfsec);
+       // }
+        TimerWait(0x2AAA);  // quatersec
         stopPWM();
         UDSconfig();
         start_object_timers();
@@ -550,19 +608,42 @@ void servo_scan_script(int left, int right){
     }
     stopPWM();
     send_distance_list_script(scan_counter);
-    done_flag = '1';
-    send_angle(left);
-    send_angle(right);
-    done_flag = '0';
+    //done_flag = '1';
+    //send_angle(left);  WE FIRST OF ALL SEND THE DEGREES AND THEN START TO SCAN
+    //send_angle(right); THIS IS DONE PREVIOUSLLY IN THE READ_FALSH FUNCTION
+    //done_flag = '0';
 }
 
 
 void send_distance_list_script(int scan_counter){
+    int temp_got_script, temp_script_size1, temp_flagB, temp_flagC, temp_flagD, temp_cliab_flag, temp_xDel, temp_xcounter;
+    temp_got_script = got_script;
+    temp_script_size1 = temp_script_size;
+    temp_flagB = flash_B_flag;
+    temp_flagC = flash_C_flag;
+    temp_flagD = flash_D_flag;
+    temp_cliab_flag = calibration_flag;
+    temp_xDel = Xdelay;
+    temp_xcounter = Xdelay_counter;
+    // for some reason, the sprintf() overwrite these variables in RAM.
+    // we are 12 hours before submission, therefore the solution is easy and dumb.
     for (distance_idx = 0; distance_idx < scan_counter; distance_idx++){
         sprintf(str_dis, "%d", distance_list[distance_idx]);
+        got_script = temp_got_script;
+        temp_script_size = temp_script_size1;
+        flash_B_flag = temp_flagB;
+        flash_C_flag = temp_flagC;
+        flash_D_flag = temp_flagD;
+        calibration_flag = temp_cliab_flag;
+        Xdelay = temp_xDel;
+        Xdelay_counter = temp_xcounter;
+        // for some reason, the sprintf() overwrite these variables in RAM.
+        // we are 12 hours before submission, therefore the solution is easy and dumb.
         dis_idx = 0;
+        done_flag = '1';
         IE2 |= UCA0TXIE;                       // enable USCI_A0 TX interrupt
         enterLPM(lpm_mode);
+
         if (state != state5){
             IE2 &= ~UCA0TXIE;
             break;
@@ -571,15 +652,37 @@ void send_distance_list_script(int scan_counter){
 }
 
 void send_angle(int degree){
+    int temp_got_script, temp_script_size1, temp_flagB, temp_flagC, temp_flagD, temp_cliab_flag, temp_xDel, temp_xcounter;
+    temp_got_script = got_script;
+    temp_script_size1 = temp_script_size;
+    temp_flagB = flash_B_flag;
+    temp_flagC = flash_C_flag;
+    temp_flagD = flash_D_flag;
+    temp_cliab_flag = calibration_flag;
+    temp_xDel = Xdelay;
+    temp_xcounter = Xdelay_counter;
+    // for some reason, the sprintf() overwrite these variables in RAM.
+    // we are 12 hours before submission, therefore the solution is easy and dumb.
     sprintf(str_angle, "%d", degree);
+    got_script = temp_got_script;
+    temp_script_size = temp_script_size1;
+    flash_B_flag = temp_flagB;
+    flash_C_flag = temp_flagC;
+    flash_D_flag = temp_flagD;
+    calibration_flag = temp_cliab_flag;
+    Xdelay = temp_xDel;
+    Xdelay_counter = temp_xcounter;
+    // for some reason, the sprintf() overwrite these variables in RAM.
+    // we are 12 hours before submission, therefore the solution is easy and dumb.
     angle_idx = 0;
+    done_flag = '0';
     IE2 |= UCA0TXIE;                       // enable USCI_A0 TX interrupt
     //enterLPM(lpm_mode);
 }
 
 
-void write_to_flash(){
-    FCTL2 = FWKEY + FSSEL0 + FN1;
+void erase_flash(){
+    FCTL2 = FWKEY + FSSEL0 + FN1;             // set key 0xA5, setting clock ACLK (as in example), divider 2
     FCTL1 = FWKEY + ERASE;                    // Set Erase bit
     FCTL3 = FWKEY;                            // Clear Lock bit
 
@@ -595,23 +698,9 @@ int get_script_size(int script){
     return scripts.script_size[script-1];
 }
 
-void set_script_size(int script){  // fixing script size. in the RX interrupt vector there are some unnecessary bytes
-    int temp_address = 0x1080;
-    int idx, script_bytes = 0;
-    char* address;
-    for (idx = 0; idx < script-1; idx ++){  // 0x1080 - (script - 1) * 0x40
-        temp_address = temp_address - 0x40;
-    }
-    address = (char*) temp_address;
-    while(1){
-        if ((*address == 0xFF && *(address+1) == 0xFF) || script_bytes == 64){
-            break;
-        }
-        *address++;
-        script_bytes++;
-    }
-    scripts.script_size[script - 1] = script_bytes;
-
+void send_char(char c){
+    UCA0TXBUF = c;
+    while (!(IFG2&UCA0TXIFG));
 }
 
 //---------------------------------------------------------------------
@@ -632,6 +721,17 @@ void TimerWait(int number){  // CCR0 get interrupt only at TACCR0 value. therefo
   enterLPM(lpm_mode);
   //TACCTL0 &=~ CCIE;
   //TACTL &= ~MC_3;
+}
+
+
+
+void disable_PB0_INT(){
+    PBsArrIntEn2 &= 0xFE;              // interrrupt disable PB0
+}
+
+void enable_PB0_INT(){
+    PBsArrIntPend2 &= ~PB0;
+    PBsArrIntEn2 |= 0x01;              // interrrupt enable PB0
 }
 
 
@@ -689,11 +789,13 @@ __interrupt void USCI0RX_ISR(void){
             LPM0_EXIT;
         }
         else if(UCA0RXBUF == 'c'){
+            prev_calibrate_state = calibration_flag;
             calibration_flag = '1';
             LPM0_EXIT;
         }
         else if(UCA0RXBUF == 'd'){
-            calibration_flag = '0';
+            //calibration_flag = '0';
+            calibration_flag = '4';
             LPM0_EXIT;
         }
     }
@@ -707,12 +809,12 @@ __interrupt void USCI0RX_ISR(void){
             LPM0_EXIT;
         }
         else if(UCA0RXBUF == 'c'){
+            prev_calibrate_state = calibration_flag;
             calibration_flag = '1';
             LPM0_EXIT;
         }
         else if(UCA0RXBUF == 'd'){
             calibration_flag = '4';  // was interrupted during the calibration process
-
             LPM0_EXIT;
         }
     }
@@ -747,6 +849,9 @@ __interrupt void USCI0RX_ISR(void){
             else {
                 // receive script and save in memory
                 if (UCA0RXBUF == 'r'){
+                    if (scripts.script_size[0] > 0){
+                        scripts.script_counter--;
+                    }
                     scripts.script_size[0] = 0;
                     LPM0_EXIT;
                 }
@@ -756,6 +861,7 @@ __interrupt void USCI0RX_ISR(void){
                     got_script = 0;
                     UCA0TXBUF = 'd';
                     while (!(IFG2&UCA0TXIFG));
+                    scripts.script_counter++;
                     LPM0_EXIT;
                 }
                 else{
@@ -774,8 +880,13 @@ __interrupt void USCI0RX_ISR(void){
             }
             else {
                 // receive script and save in memory
-                if (UCA0RXBUF == 's'){
+                if (UCA0RXBUF == 'r'){
+                    if (scripts.script_size[1] > 0){
+                        scripts.script_counter--;
+                    }
                     scripts.script_size[1] = 0;
+
+                    LPM0_EXIT;
                 }
                 else if (UCA0RXBUF == '!'){
                     scripts.script_size[1] = temp_script_size;
@@ -783,6 +894,7 @@ __interrupt void USCI0RX_ISR(void){
                     got_script = 0;
                     UCA0TXBUF = 'd';
                     while (!(IFG2&UCA0TXIFG));
+                    scripts.script_counter++;
                     LPM0_EXIT;
                 }
                 else{
@@ -801,8 +913,12 @@ __interrupt void USCI0RX_ISR(void){
             }
             else {
                 // receive script and save in memory
-                if (UCA0RXBUF == 's'){
+                if (UCA0RXBUF == 'r'){
+                    if (scripts.script_size[2] > 0){
+                        scripts.script_counter--;
+                    }
                     scripts.script_size[2] = 0;
+                    LPM0_EXIT;
                 }
                 else if (UCA0RXBUF == '!'){
                     scripts.script_size[2] = temp_script_size;
@@ -810,6 +926,7 @@ __interrupt void USCI0RX_ISR(void){
                     got_script = 0;
                     UCA0TXBUF = 'd';
                     while (!(IFG2&UCA0TXIFG));
+                    scripts.script_counter++;
                     LPM0_EXIT;
                 }
                 else{
@@ -824,6 +941,10 @@ __interrupt void USCI0RX_ISR(void){
 
     else if (state == state6){
         if(UCA0RXBUF == 'r'){
+            LPM0_EXIT;
+        }
+        else if(UCA0RXBUF == 'd'){
+            calibration_flag = '4';  // was interrupted during the calibration process
             LPM0_EXIT;
         }
     }
@@ -870,7 +991,7 @@ void enterLPM(unsigned char LPM_level){
       _BIS_SR(LPM3_bits);     /* Enter Low Power Mode 3 */
         else if(LPM_level == 0x04)
       _BIS_SR(LPM4_bits);     /* Enter Low Power Mode 4 */
-}
+    }
 
 
 //*********************************************************************
@@ -881,7 +1002,6 @@ __interrupt void USCI0TX_ISR(void)
 {
     if (state == state0){
         IE2 &= ~UCA0TXIE;
-        findme=15;
         LPM0_EXIT;
     }
     if (state == state1){
@@ -904,7 +1024,7 @@ __interrupt void USCI0TX_ISR(void)
             IE2 &= ~UCA0TXIE;
         }                                                                           // Disable USCI_A0 TX interrupt
     }
-    else if (state == state3){
+    else if (state == state3 || state == state6){
         UCA0TXBUF = str_ldr[str_ldr_idx];
         str_ldr_idx ++;
         while (!(IFG2&UCA0TXIFG));
@@ -924,7 +1044,7 @@ __interrupt void USCI0TX_ISR(void)
             if (!str_ldr[str_ldr_idx]){                                              // TX over?
                 UCA0TXBUF = '\n';
                 while (!(IFG2&UCA0TXIFG));
-                IE2 &= ~UCA0TXIE;                                                         // Disable USCI_A0 TX interrupt       WILL THAT BULLSHIT WORK?
+                IE2 &= ~UCA0TXIE;                                                         // Disable USCI_A0 TX interrupt
                 LPM0_EXIT;
             }                                                                         // Disable USCI_A0 TX interrupt
         }
@@ -943,26 +1063,30 @@ __interrupt void USCI0TX_ISR(void)
 
     else if (state == state5){
         if (done_flag == '0'){
+            UCA0TXBUF = str_angle[angle_idx];
+            angle_idx ++;
+            while (!(IFG2&UCA0TXIFG));
+            if (!str_angle[angle_idx]){                                              // TX over?
+                UCA0TXBUF = '\n';
+                while (!(IFG2&UCA0TXIFG));
+                IE2 &= ~UCA0TXIE;                                                         // Disable USCI_A0 TX interrupt
+                done_flag = '1';
+                //LPM0_EXIT;
+            }                                                                           // Disable USCI_A0 TX interrupt
+        }
+
+        else if(done_flag == '1')
+           {
             UCA0TXBUF = str_dis[dis_idx];
             dis_idx ++;
             if (!str_dis[dis_idx-1]){                                                     // TX over?
                 UCA0TXBUF = '\n';
                 IE2 &= ~UCA0TXIE;
+                done_flag = '0';
                 LPM0_EXIT;
-            }                                                                           // Disable USCI_A0 TX interrupt
-        }
-        else if(done_flag == '1')
-           {
-               UCA0TXBUF = str_angle[angle_idx];
-               angle_idx ++;
-               while (!(IFG2&UCA0TXIFG));
-               if (!str_angle[angle_idx]){                                              // TX over?
-                   UCA0TXBUF = '\n';
-                   while (!(IFG2&UCA0TXIFG));
-                   IE2 &= ~UCA0TXIE;                                                         // Disable USCI_A0 TX interrupt       WILL THAT BULLSHIT WORK?
-                   LPM0_EXIT;
                }
            }
+
     }
 }
 
@@ -986,44 +1110,26 @@ __interrupt void USCI0TX_ISR(void)
             PBsArrIntPend2 &= ~PB0;
             LPM0_EXIT;
         }
-        else if (state == state3 || state == state4){
+        else if (state == state3 || state == state4 || state == state6){
             if(calibration_flag == '1'){
             UCA0TXBUF = 'o'; // little 'o', send to continue calibrating from push button 0
             while (!(IFG2&UCA0TXIFG));
             }
             else{
+                prev_calibrate_state = calibration_flag;
                 calibration_flag = '1';  // start calibration!
                 UCA0TXBUF = 'c';
+                set_SemiCircle_timer(490);
+                TimerWait(0xAAAA);
+                stopPWM();
+                enable_interrupts();
+
                 while (!(IFG2&UCA0TXIFG));
             }
         }
       PBsArrIntPend2 &= ~PB0;
     }
-       
-//---------------------------------------------------------------------
-//            Exit from a given LPM 
-//---------------------------------------------------------------------
-        switch(lpm_mode){
-        case mode0:
-         LPM0_EXIT; // must be called from ISR only
-         break;
 
-        case mode1:
-         LPM1_EXIT; // must be called from ISR only
-         break;
-
-        case mode2:
-         LPM2_EXIT; // must be called from ISR only
-         break;
-                 
-        case mode3:
-         LPM3_EXIT; // must be called from ISR only
-         break;
-                 
-        case mode4:
-         LPM4_EXIT; // must be called from ISR only
-         break;
-    }
         
 }
 
@@ -1041,8 +1147,10 @@ __interrupt void Timer_A(void){
             if (i==2) {
                 diff = temp[i-1]-temp[i-2]; //UCA0TXBUF
                 i=0;
-                LPM0_EXIT;
+                if (diff > 0){
 
+                    LPM0_EXIT;
+                }
         }
 }
 

@@ -6,7 +6,7 @@ import math
 Str_distance = '50'
 angle_counter = 0
 N_ADC = 204.6  # 1023 * 0.2 --> Vcc is 5 Volt
-number_of_scan = 21
+number_of_scan = 61
 break_calibration = False
 
 enableTX = True
@@ -65,8 +65,9 @@ def scanning(scan, scan_list, s):
     print("scan_list:\n", scan_list)
 
 
+
 def calibration(scan, s):
-    """ Calibration of both LDR1 and LDR2, computing average of every point in area on MCU and send result """
+    """ Calibration of both LDR1 and LDR2, computing average of every point in area on MCU and sends here the result """
     global enableTX, calibrated, break_calibration, ldr_calibrated, temp_ldr_calibrated
     temp_ldr_calibrated = ldr_calibrated
     ldr_calibrated.clear()
@@ -76,6 +77,7 @@ def calibration(scan, s):
                                            "or received 'o' from MCU (pressing push button 0).\n"
                            "                   Press Cancel to Exit")
     st_scan = True
+    s.reset_input_buffer()
     while st_scan:
         eventD, valD = start_scan.read(timeout=50, timeout_key="_TIMEOUT_")
         if eventD == 'Ok':
@@ -85,8 +87,11 @@ def calibration(scan, s):
             start_scan.close()
             ldr_measurement.clear()
             break_calibration = True
+            if calibrated:
+                return True
             ldr_calibrated = temp_ldr_calibrated
-            return
+            sendchar('d', s)  # notify MCU that calibration is canceled!
+            return calibrated
         elif eventD == "_TIMEOUT_":
             while s.in_waiting > 0:
                 enableTX = False
@@ -97,12 +102,7 @@ def calibration(scan, s):
                     # received from MCU 'o' to get a new scan. char[0] is a plaster, sometimes we get 'oo'
                     start_scan.close()
                     st_scan = False
-    enableTX = True
-    while s.out_waiting > 0 or enableTX:
-        bytetxMsg = bytes('r' + '\n', 'ascii')  # 'r' for MCU is to continue
-        s.write(bytetxMsg)
-        if s.out_waiting == 0:
-            enableTX = False
+    sendchar('r', s)  # signal the MCU to continue
     calibrate = popup("Calibrating...")
     calibrate.refresh()
     while(1):
@@ -111,6 +111,7 @@ def calibration(scan, s):
             temp = s.readline()
             char = temp.decode("utf-8")
             print(char)
+
             if char == 'E':  # Error in the correct scan, keep the light in the same distance and try again
                 eror = True
                 error_scan = popup_new_dis(
@@ -128,7 +129,11 @@ def calibration(scan, s):
                         ldr_measurement.clear()
                         break_calibration = True
                         ldr_calibrated = temp_ldr_calibrated
-                        return
+                        calibrate.close()
+                        sendchar('d', s)  # signal the MCU to cancel
+                        if calibrated:
+                            return True
+                        return calibrated
                     elif eventD == "_TIMEOUT_":
                         while s.in_waiting > 0:
                             enableTX = False
@@ -140,12 +145,8 @@ def calibration(scan, s):
                                 error_scan.close()
                                 eror = False
 
-                enableTX = True
-                while s.out_waiting > 0 or enableTX:
-                    bytetxMsg = bytes('r' + '\n', 'ascii')  # 'r' for MCU is to continue
-                    s.write(bytetxMsg)
-                    if s.out_waiting == 0:
-                        enableTX = False
+                sendchar('r', s)  # signal the MCU to continue
+                continue
             elif char == 'n':  # request for changing light distance
                 new_line = True
                 change_dis = popup_new_dis("                  CHANGE DISTANCE!\n\nmeasurement will not continue until 'Ok' pressed\n"
@@ -162,7 +163,11 @@ def calibration(scan, s):
                         ldr_measurement.clear()
                         break_calibration = True
                         ldr_calibrated = temp_ldr_calibrated
-                        return
+                        calibrate.close()
+                        sendchar('d', s)  # signal the MCU to cancel
+                        if calibrated:
+                            return True
+                        return calibrated
                     elif eventD == "_TIMEOUT_":
                         while s.in_waiting > 0:
                             enableTX = False
@@ -173,12 +178,8 @@ def calibration(scan, s):
                                 # received from MCU 'o' to get a new scan. char[0] is a plaster, sometimes we get 'oo'
                                 change_dis.close()
                                 new_line = False
-                enableTX = True
-                while s.out_waiting > 0 or enableTX:
-                    bytetxMsg = bytes('r' + '\n', 'ascii')  # 'r' for MCU is to continue
-                    s.write(bytetxMsg)
-                    if s.out_waiting == 0:
-                        enableTX = False
+                sendchar('r', s)  # signal the MCU to continue
+                continue
             elif char == 'd':  # calibration done
                 calibrate.close()
                 print("ldr_measurement:\n", ldr_measurement)  # this list now contain the ldr measurement from the calibration process
@@ -195,9 +196,12 @@ def calibration(scan, s):
                 calibrated = True
                 print("ldr_calibrated:\n", ldr_calibrated)
                 return True
+            elif char[0] == 'o':
+                continue
             else:
                 print("this is distance: ", len(ldr_measurement))
                 ldr_measurement.append((int(char) / N_ADC))  # reading from MCU the LDR average results
+                sendchar('r', s)   # signal the MCU to continue
 
 
 def startSweep(char, s):
@@ -226,11 +230,30 @@ def popup_new_dis(message):
     return window
 
 
+def sendchar(char, s):
+    """ sending 1 char to MCU """
+    global enableTX
+    enableTX = True
+    s.reset_output_buffer()
+    while (s.out_waiting > 0 or enableTX):
+        bytetxstate = bytes(char + '\n', 'ascii')
+        s.write(bytetxstate)
+        if s.out_waiting == 0:
+            enableTX = False
+
+
+def popup_new_dis_button(message):
+    layout = [[sg.Text(message), sg.B('Cancel', size=(6,2))]]
+    window = sg.Window('Message', layout, no_titlebar=True, keep_on_top=True, finalize=True)
+    return window
+
+
 def light(com):
 
     global Str_distance, objects, enableTX, s, calibrated, break_calibration
     s = com
     ldr_scan = []
+
     x_offset = 225
     y_offset = 100
     scan = True
@@ -240,10 +263,11 @@ def light(com):
     while not calibrated:
         calibrated = calibration(scan, s)
         if break_calibration:
+            break_calibration = False
             return
     if calibrated:
-        startSweep('r', s)
-        scanning(scan, ldr_scan,s)
+        startSweep('r', s)   # signal the MCU to wake up
+        scanning(scan, ldr_scan, s)
         while not calibrated:  # if received 'c' from push button during the scan
             calibrated = calibration(scan, s)
             if break_calibration:
@@ -265,7 +289,7 @@ def light(com):
         [sg.B("Rescan!"), sg.B("Main Menu", pad=(130, 20))]
     ]
 
-    window = sg.Window('Light Proximity Detector', layout)
+    window = sg.Window('Light Proximity Detector', layout, location=(500, 20))
     window.finalize()
     graph = window["_GRAPH_"]
 
@@ -287,6 +311,7 @@ def light(com):
                     s.reset_input_buffer()
                     calibrated = calibration(True, s)
                     if break_calibration:
+
                         break_calibration = False
                         break
                     else:
@@ -301,7 +326,7 @@ def light(com):
                         if voltage > 5:
                             continue
                         for j in range(0, len(ldr_calibrated)):
-                            if abs(ldr_calibrated[j] - voltage) < 0.017:  # PLAY WITH MARGIN!
+                            if abs(ldr_calibrated[j] - voltage) < 0.0073:  # PLAY WITH MARGIN!  1.5/N_adc  -->  + - 1.5
                                 objects.append((j, ldr_scan[i][1]))
                     # objects list ready
                     print("object list:\n", objects)
@@ -356,12 +381,6 @@ def light(com):
                         break_calibration = False
                         calibrated = True
                         enableTX = True
-                        while s.out_waiting > 0 or enableTX:
-                            bytetxMsg = bytes('d' + '\n', 'ascii')
-                            # 'd' for MCU is to tell that ldr are calibrated and calibration function is canceled
-                            s.write(bytetxMsg)
-                            if s.out_waiting == 0:
-                                enableTX = False
                         break
                     objects.clear()
                     ldr_scan.clear()
@@ -388,17 +407,16 @@ def light(com):
                 if break_calibration:  # if hit Cancel in the calibration mode stay with the last calibration
                     break_calibration = False
                     calibrated = True
-                    enableTX = True
-                    while s.out_waiting > 0 or enableTX:
-                        bytetxMsg = bytes('d' + '\n', 'ascii')
-                        # 'd' for MCU is to tell that ldr are calibrated and calibration function is canceled
-                        s.write(bytetxMsg)
-                        if s.out_waiting == 0:
-                            enableTX = False
+                    sendchar('d', s)   # signal the MCU to cancel
                     break
                 objects.clear()
                 ldr_scan.clear()
                 scanning(scan, ldr_scan, s)
+                graph.erase()
+                graph.draw_arc((10, -160), (440, 360), 180, 0, style='arc', arc_color='green')
+                graph.draw_arc((60, -110), (390, 310), 180, 0, style='arc', arc_color='green')
+                graph.draw_arc((110, -60), (340, 260), 180, 0, style='arc', arc_color='green')
+                graph.DrawLine((10, 100), (440, 100), width=2, color="white")
             printscan = True
             window.un_hide()
 

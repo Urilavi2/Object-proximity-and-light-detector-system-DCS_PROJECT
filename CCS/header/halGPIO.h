@@ -15,6 +15,7 @@ extern enum SYSmode lpm_mode; // global variable
 
 
 extern void sysConfig(void);
+extern void set_flash();
 
 extern void delay(unsigned int);
 extern void enterLPM(unsigned char);
@@ -40,7 +41,7 @@ extern void stop_USDscan();
 extern void send_distance_list();
 extern void send_done();
 extern void distance_append();
-extern void set_calibration_flag();
+extern void set_calibration_flag(char oldstate);
 
 
 extern void startADC_ldr1();
@@ -68,9 +69,13 @@ extern void send_angle(int degree);
 extern void send_distance_list_script(int scan_counter);
 extern void servo_scan_script(int left, int right);
 extern void stop_write_flash();
-extern void write_to_flash();
+extern void erase_flash();
 extern int get_script_size(int script);
-extern void set_script_size(int script);
+extern void send_char(char c);
+
+extern void disable_PB0_INT();
+extern void enable_PB0_INT();
+
 extern struct script_segment scripts;
 extern int got_script;
 extern char *flash_ptrB;
@@ -79,6 +84,7 @@ extern char *flash_ptrD;
 extern int flash_B_flag;
 extern int flash_C_flag;
 extern int flash_D_flag;
+extern char prev_calibrate_state;
 
 extern __interrupt void Timer_A(void);
 extern __interrupt void DMA_ISR(void);
