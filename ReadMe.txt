@@ -25,6 +25,7 @@ Included Python files:
 
 * Every module has it's own functions except of the lightNobjects.py that is using both light.py and Object.py modules
 
+** C files are in CCS folder
 
 
 
